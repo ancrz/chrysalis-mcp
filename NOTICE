@@ -1,0 +1,36 @@
+chrysalis-bridge / chrysalis-mcp
+Copyright 2026 ancrz
+
+Portions of src/chrysalis_mcp/core/ are adapted (reverse-engineered, not imported) from
+agent-execution-plane (Apache License 2.0, same author):
+  - engine/telemetry.py   -> core/envelope.py  (request telemetry, severity inference, payload clamping)
+  - server.py aep_ctl     -> core/registry.py  (domain/action dispatcher, schema, alternatives)
+  - server.py playbook_run-> core/batch.py     (batched steps, $cache references, field projection)
+  - engine/ipc_pool.py    -> core/session.py   (session cache semantics: TTL, store_as; in-process only)
+
+Known upstream gaps fixed during extraction: GAP-OM-16 (duplicated nested envelope, mandatory
+telemetry in terse modes) and the two-schema-sources class of bug (schema is generated from the
+handler registry).
+
+sqlite-vec loading (substrate/store.py `_load_vec`) is adapted (reverse-engineered, not imported) from
+agent-execution-plane engine/db.py: fail-soft optional import, enable_load_extension -> load ->
+disable, and automatic fallback when the extension is unavailable.
+
+Version/integrity stamp (src/chrysalis_mcp/core/version.py) is adapted (reverse-engineered, not
+imported) from agent-execution-plane server.py `_get_git_commit` / `_get_schema_hash`. Upstream gap
+fixed during extraction: GAP-RT-04 (the commit was not captured at import, so it reported the
+current checkout rather than the code the process loaded; here loaded_commit and the source hash are
+fixed at import and `stale` compares them with the disk).
+
+Per-agent accounting (agent_id in core/registry.py, meta.stats) follows the AEP agent usage summary
+pattern (engine/security.py `get_agent_usage_summary`, GAP-OM-18).
+
+Rotating verified backups (src/chrysalis_mcp/substrate/backup.py) are adapted (reverse-engineered,
+not imported) from agent-execution-plane engine/backup.py: sqlite3 online backup API, integrity_check
+on the copy, fixed rotating slots and sidecar metadata.
+
+Model profile and capability advisories (src/chrysalis_mcp/core/profile.py, core/advisory.py) are
+adapted (reverse-engineered, not imported) from agent-execution-plane engine/privilege.py
+`detect_chmod_tier`: precedence forced env -> measured probes -> tier -> degradation matrix. Here the
+tier is a model class plus a thinking flag, the probes are server-checked calibration tasks, and the
+matrix is evidence data (data/evidence.json) whose entries cite measured results.

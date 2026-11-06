@@ -1,0 +1,153 @@
+{
+  "hypothesis": "H-a'",
+  "config": {
+    "flyhash_default": {
+      "d": 1024,
+      "m": 8192,
+      "k": 64,
+      "c": 12,
+      "seed": 1729
+    },
+    "n_queries": 100,
+    "seed": 0,
+    "cluster_size": 10,
+    "precision_at": 9,
+    "sweep_k": [
+      64,
+      256,
+      410
+    ],
+    "sweep_c": [
+      12,
+      24
+    ]
+  },
+  "data": {
+    "1000": {
+      "cosine": {
+        "precision": 0.8578,
+        "bytes_per_node": 4096,
+        "query_ms": 0.737
+      },
+      "fly": {
+        "k64_c12": {
+          "k": 64,
+          "c": 12,
+          "precision": 0.4644,
+          "fly_over_cosine": 0.5415,
+          "agreement_with_cosine": 0.5022,
+          "bytes_per_node": 1024,
+          "query_ms": 0.916
+        },
+        "k64_c24": {
+          "k": 64,
+          "c": 24,
+          "precision": 0.5089,
+          "fly_over_cosine": 0.5933,
+          "agreement_with_cosine": 0.5544,
+          "bytes_per_node": 1024,
+          "query_ms": 0.996
+        },
+        "k256_c12": {
+          "k": 256,
+          "c": 12,
+          "precision": 0.4989,
+          "fly_over_cosine": 0.5816,
+          "agreement_with_cosine": 0.5544,
+          "bytes_per_node": 1024,
+          "query_ms": 2.026
+        },
+        "k256_c24": {
+          "k": 256,
+          "c": 24,
+          "precision": 0.5633,
+          "fly_over_cosine": 0.6567,
+          "agreement_with_cosine": 0.6156,
+          "bytes_per_node": 1024,
+          "query_ms": 2.1
+        },
+        "k410_c12": {
+          "k": 410,
+          "c": 12,
+          "precision": 0.5767,
+          "fly_over_cosine": 0.6723,
+          "agreement_with_cosine": 0.6444,
+          "bytes_per_node": 1024,
+          "query_ms": 2.863
+        },
+        "k410_c24": {
+          "k": 410,
+          "c": 24,
+          "precision": 0.5944,
+          "fly_over_cosine": 0.693,
+          "agreement_with_cosine": 0.6611,
+          "bytes_per_node": 1024,
+          "query_ms": 3.031
+        }
+      }
+    },
+    "10000": {
+      "cosine": {
+        "precision": 0.7422,
+        "bytes_per_node": 4096,
+        "query_ms": 9.256
+      },
+      "fly": {
+        "k64_c12": {
+          "k": 64,
+          "c": 12,
+          "precision": 0.28,
+          "fly_over_cosine": 0.3772,
+          "agreement_with_cosine": 0.3344,
+          "bytes_per_node": 1024,
+          "query_ms": 9.813
+        },
+        "k64_c24": {
+          "k": 64,
+          "c": 24,
+          "precision": 0.3444,
+          "fly_over_cosine": 0.4641,
+          "agreement_with_cosine": 0.4178,
+          "bytes_per_node": 1024,
+          "query_ms": 10.059
+        },
+        "k256_c12": {
+          "k": 256,
+          "c": 12,
+          "precision": 0.3478,
+          "fly_over_cosine": 0.4686,
+          "agreement_with_cosine": 0.4311,
+          "bytes_per_node": 1024,
+          "query_ms": 30.323
+        },
+        "k256_c24": {
+          "k": 256,
+          "c": 24,
+          "precision": 0.3778,
+          "fly_over_cosine": 0.509,
+          "agreement_with_cosine": 0.46,
+          "bytes_per_node": 1024,
+          "query_ms": 30.901
+        },
+        "k410_c12": {
+          "k": 410,
+          "c": 12,
+          "precision": 0.42,
+          "fly_over_cosine": 0.5659,
+          "agreement_with_cosine": 0.5178,
+          "bytes_per_node": 1024,
+          "query_ms": 47.212
+        },
+        "k410_c24": {
+          "k": 410,
+          "c": 24,
+          "precision": 0.4289,
+          "fly_over_cosine": 0.5778,
+          "agreement_with_cosine": 0.5378,
+          "bytes_per_node": 1024,
+          "query_ms": 46.347
+        }
+      }
+    }
+  }
+}

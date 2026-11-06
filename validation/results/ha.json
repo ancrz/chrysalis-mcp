@@ -1,0 +1,33 @@
+{
+  "hypothesis": "H-a",
+  "config": {
+    "n_items": 20,
+    "ks": [
+      1,
+      5
+    ]
+  },
+  "data": {
+    "seeds": {
+      "recall@1": 0.0,
+      "recall@5": 0.4,
+      "query_ms": 1.882,
+      "response_bytes": 580.0,
+      "tool_calls": 1
+    },
+    "iterative": {
+      "recall@1": 0.0,
+      "recall@5": 0.4,
+      "query_ms": 3.609,
+      "response_bytes": 1161.0,
+      "tool_calls": 2
+    },
+    "ppr": {
+      "recall@1": 0.0,
+      "recall@5": 0.45,
+      "query_ms": 2.532,
+      "response_bytes": 939.5,
+      "tool_calls": 1
+    }
+  }
+}

@@ -1,0 +1,25 @@
+* text=auto eol=lf
+
+# Diff drivers
+*.py   diff=python
+*.md   diff=markdown
+*.toml diff=toml
+*.json diff=json
+*.yml  diff=yaml
+*.yaml diff=yaml
+
+# Generated files
+*.lock                      -diff linguist-generated
+uv.lock                     -diff linguist-generated
+validation/results/*.json   linguist-generated
+
+# Documentation
+docs/**                     linguist-documentation
+NOTICE                      linguist-documentation
+LICENSE                     linguist-documentation
+
+# Binary
+*.gguf   binary
+*.png    binary
+*.db     binary
+*.sqlite binary

@@ -1,0 +1,174 @@
+{
+  "hypothesis": "H-b-e2e",
+  "config": {
+    "seeds": [
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "k": 5,
+    "n_set_a": 12,
+    "n_set_b": 12,
+    "n_interference": 300
+  },
+  "data": {
+    "no_learn": {
+      "taught": 0.0667,
+      "retained": 0.0333,
+      "taught@1": 0.0167,
+      "retained@1": 0.0,
+      "explained": 0.0,
+      "explained_retained": 0.0,
+      "unrelated_learned_as": 0.0,
+      "retention": 0.4993,
+      "per_seed": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.16666666666666666,
+          0.08333333333333333
+        ],
+        [
+          0.08333333333333333,
+          0.0
+        ],
+        [
+          0.08333333333333333,
+          0.08333333333333333
+        ]
+      ]
+    },
+    "fly_update": {
+      "taught": 0.9667,
+      "retained": 0.9667,
+      "taught@1": 0.9333,
+      "retained@1": 0.9167,
+      "explained": 0.9667,
+      "explained_retained": 0.9667,
+      "retention": 1.0,
+      "per_seed": [
+        [
+          0.9166666666666666,
+          0.9166666666666666
+        ],
+        [
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0
+        ],
+        [
+          0.9166666666666666,
+          0.9166666666666666
+        ],
+        [
+          1.0,
+          1.0
+        ]
+      ]
+    },
+    "alias_ingest": {
+      "taught": 1.0,
+      "retained": 1.0,
+      "taught@1": 0.0,
+      "retained@1": 0.0,
+      "explained": 0.0,
+      "explained_retained": 0.0,
+      "retention": 1.0,
+      "per_seed": [
+        [
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0
+        ]
+      ]
+    },
+    "alias_ingest_clean": {
+      "taught": 1.0,
+      "retained": 1.0,
+      "taught@1": 0.0,
+      "retained@1": 0.0,
+      "explained": 0.0,
+      "explained_retained": 0.0,
+      "retention": 1.0,
+      "per_seed": [
+        [
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0
+        ]
+      ]
+    },
+    "fly_update_consolidate": {
+      "taught": 0.9667,
+      "retained": 0.9667,
+      "taught@1": 0.9333,
+      "retained@1": 0.85,
+      "explained": 0.9667,
+      "explained_retained": 0.9667,
+      "retention": 1.0,
+      "per_seed": [
+        [
+          0.9166666666666666,
+          0.9166666666666666
+        ],
+        [
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0
+        ],
+        [
+          0.9166666666666666,
+          0.9166666666666666
+        ],
+        [
+          1.0,
+          1.0
+        ]
+      ]
+    }
+  }
+}

@@ -1,0 +1,57 @@
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Entornos y artefactos locales
+.venv/
+venv/
+__pycache__/
+*.pyc
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Logs y salidas temporales
+*.log
+data/logs/
+tmp/
+
+# Caches de herramientas de test y lint
+.pytest_cache/
+.ruff_cache/
+
+# Git worktrees de pipeline (aislamiento de tracks Pragma/Dokimos)
+.claude/worktrees/
+
+# Salidas de validación (logs de benches y servidor local)
+validation/results/*.log
+
+# Local-only project documentation and agent configuration (kept on disk, not published)
+docs/
+CLAUDE.md
+.claude/
+
+# Model weights (never distributed)
+*.gguf
+*.safetensors
+
+# SQLite databases and substrate data
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite*
+chrysalis/
+
+# Coverage and build artifacts
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+dist/
+build/
+*.egg-info/

@@ -1,0 +1,44 @@
+[project]
+name = "chrysalis-mcp"
+version = "0.1.0"
+description = "Single-tool MCP server: memory, continual learning and reasoning for a pinned local LLM."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.14"
+dependencies = [
+    "mcp<2",
+    "numpy>=2.5.4",
+    "sqlite-vec==0.1.9",
+    "z3-solver>=5.3.3.0",
+]
+
+[project.scripts]
+chrysalis-mcp = "chrysalis_mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/chrysalis_mcp"]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--strict-markers -m 'not bench and not llm'"
+markers = [
+    "unit: fast deterministic tests (default)",
+    "contract: interface contracts against fakes",
+    "bench: validation benchmarks (run with -m bench; write validation/results)",
+    "llm: needs a live OpenAI-compatible model at CHRYSALIS_LLM_URL (skips if unreachable)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

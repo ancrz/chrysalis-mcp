@@ -1,0 +1,36 @@
+{
+  "hypothesis": "H-mcp",
+  "config": {
+    "task": [
+      "memory.ingest",
+      "memory.recall",
+      "memory.update",
+      "memory.recall"
+    ],
+    "bytes_per_token": 4
+  },
+  "data": {
+    "batch": {
+      "tool_calls": 1,
+      "tool_list_bytes": 1251,
+      "request_bytes": 577,
+      "response_bytes": 606,
+      "est_tokens": 921
+    },
+    "sequential": {
+      "tool_calls": 4,
+      "tool_list_bytes": 1251,
+      "request_bytes": 457,
+      "response_bytes": 1797,
+      "est_tokens": 2127
+    },
+    "granular": {
+      "tool_calls": 4,
+      "tool_list_bytes": 5939,
+      "request_bytes": 417,
+      "response_bytes": 1797,
+      "est_tokens": 7977,
+      "simulated": true
+    }
+  }
+}

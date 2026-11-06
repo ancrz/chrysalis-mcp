@@ -1,0 +1,1418 @@
+{
+  "hypothesis": "H-a/H-c",
+  "config": {
+    "model": "gemma-4-e4b",
+    "url": "http://127.0.0.1:8080/v1",
+    "params_b": 4.0,
+    "active_params_b": null
+  },
+  "status": "OK",
+  "thinking": "off",
+  "data": {
+    "config": {
+      "thinking": false,
+      "max_tokens": 512,
+      "timeout_s": 120.0
+    },
+    "H-c": {
+      "alone": {
+        "n": 20,
+        "accuracy": 0.8,
+        "statuses": [
+          "OK"
+        ],
+        "mean_prompt_tokens": 63.8,
+        "mean_completion_tokens": 12.2,
+        "mean_reasoning_chars": 0.0,
+        "mean_tool_calls": 0.0,
+        "mean_tool_bytes": 0.0
+      },
+      "reason": {
+        "n": 20,
+        "accuracy": 0.6,
+        "statuses": [
+          "ERROR",
+          "OK"
+        ],
+        "mean_prompt_tokens": 861.4,
+        "mean_completion_tokens": 319.0,
+        "mean_reasoning_chars": 469.4,
+        "mean_tool_calls": 0.7,
+        "mean_tool_bytes": 349.9
+      }
+    },
+    "H-a": {
+      "alone": {
+        "n": 20,
+        "accuracy": 0.0,
+        "statuses": [
+          "OK"
+        ],
+        "mean_prompt_tokens": 36.5,
+        "mean_completion_tokens": 3.8,
+        "mean_reasoning_chars": 0.0,
+        "mean_tool_calls": 0.0,
+        "mean_tool_bytes": 0.0,
+        "mean_wall_s": 0.29,
+        "reason_use_rate": 0.0,
+        "handshake_first_rate": 0.0
+      },
+      "memory": {
+        "n": 20,
+        "accuracy": 0.6,
+        "statuses": [
+          "OK"
+        ],
+        "mean_prompt_tokens": 1010.8,
+        "mean_completion_tokens": 54.0,
+        "mean_reasoning_chars": 0.0,
+        "mean_tool_calls": 1.0,
+        "mean_tool_bytes": 866.9,
+        "mean_wall_s": 3.22,
+        "reason_use_rate": 0.0,
+        "handshake_first_rate": 0.0
+      }
+    },
+    "H-a-ctx": {
+      "context": {
+        "n": 20,
+        "accuracy": 0.9,
+        "statuses": [
+          "OK"
+        ],
+        "mean_prompt_tokens": 467.4,
+        "mean_completion_tokens": 4.5,
+        "mean_reasoning_chars": 0.0,
+        "mean_tool_calls": 0.0,
+        "mean_tool_bytes": 0.0,
+        "mean_wall_s": 0.37,
+        "reason_use_rate": 0.0,
+        "handshake_first_rate": 0.0
+      }
+    },
+    "H-c-hard": {
+      "alone": {
+        "n": 17,
+        "accuracy": 0.1765,
+        "statuses": [
+          "OK"
+        ],
+        "mean_prompt_tokens": 82.2,
+        "mean_completion_tokens": 19.2,
+        "mean_reasoning_chars": 0.0,
+        "mean_tool_calls": 0.0,
+        "mean_tool_bytes": 0.0,
+        "mean_wall_s": 0.99,
+        "reason_use_rate": 0.0,
+        "handshake_first_rate": 0.0
+      },
+      "tool": {
+        "n": 17,
+        "accuracy": 0.2941,
+        "statuses": [
+          "ERROR",
+          "OK"
+        ],
+        "mean_prompt_tokens": 2613.0,
+        "mean_completion_tokens": 671.6,
+        "mean_reasoning_chars": 347.6,
+        "mean_tool_calls": 2.24,
+        "mean_tool_bytes": 918.4,
+        "mean_wall_s": 30.66,
+        "reason_use_rate": 0.7647,
+        "handshake_first_rate": 0.0
+      }
+    },
+    "H-adv": {
+      "advised": {
+        "n": 17,
+        "accuracy": 0.1765,
+        "statuses": [
+          "OK"
+        ],
+        "mean_prompt_tokens": 1349.2,
+        "mean_completion_tokens": 172.5,
+        "mean_reasoning_chars": 0.0,
+        "mean_tool_calls": 1.0,
+        "mean_tool_bytes": 426.6,
+        "mean_wall_s": 8.07,
+        "reason_use_rate": 1.0,
+        "handshake_first_rate": 0.0
+      }
+    },
+    "calibration": {
+      "status": "OK",
+      "scores": {
+        "memory": 0.5,
+        "reason": 0.6667
+      },
+      "submitted": true,
+      "actions": [
+        "meta.calibrate"
+      ],
+      "error": null,
+      "prompt_tokens": 1564,
+      "completion_tokens": 96,
+      "wall_s": 5.368
+    },
+    "H-adv-heldout": {
+      "alone": {
+        "n": 16,
+        "accuracy": 0.25,
+        "values_accuracy": 0.25,
+        "statuses": [
+          "OK"
+        ],
+        "mean_prompt_tokens": 90.3,
+        "mean_completion_tokens": 15.6,
+        "mean_reasoning_chars": 0.0,
+        "mean_tool_calls": 0.0,
+        "mean_tool_bytes": 0.0,
+        "mean_wall_s": 0.82,
+        "reason_use_rate": 0.0,
+        "handshake_first_rate": 0.0,
+        "items": [
+          {
+            "i": 0,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"d\": 10}",
+            "prompt_tokens": 105,
+            "completion_tokens": 8
+          },
+          {
+            "i": 1,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"q\": 4, \"z\": 7, \"c\": 5, \"a\": 5}",
+            "prompt_tokens": 104,
+            "completion_tokens": 25
+          },
+          {
+            "i": 2,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "```json\n{\"x\": 6, \"y\": 4, \"a\": 1}\n```",
+            "prompt_tokens": 112,
+            "completion_tokens": 24
+          },
+          {
+            "i": 3,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"x\": 4}",
+            "prompt_tokens": 110,
+            "completion_tokens": 7
+          },
+          {
+            "i": 4,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"x\": 2, \"c\": 2, \"y\": 2, \"f\": 1}",
+            "prompt_tokens": 101,
+            "completion_tokens": 25
+          },
+          {
+            "i": 5,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"r\": 5, \"q\": 9, \"e\": 5}",
+            "prompt_tokens": 91,
+            "completion_tokens": 19
+          },
+          {
+            "i": 6,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "```json\n{\"z\": 10, \"c\": 3, \"q\": 9, \"r\": 3}\n```",
+            "prompt_tokens": 109,
+            "completion_tokens": 31
+          },
+          {
+            "i": 7,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"g\": 4}",
+            "prompt_tokens": 101,
+            "completion_tokens": 7
+          },
+          {
+            "i": 8,
+            "correct": true,
+            "values_correct": true,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"x\": 5, \"r\": 8}",
+            "prompt_tokens": 78,
+            "completion_tokens": 13
+          },
+          {
+            "i": 9,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"d\": 3, \"e\": 6}",
+            "prompt_tokens": 79,
+            "completion_tokens": 13
+          },
+          {
+            "i": 10,
+            "correct": true,
+            "values_correct": true,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"e\": 3, \"c\": 2}",
+            "prompt_tokens": 76,
+            "completion_tokens": 13
+          },
+          {
+            "i": 11,
+            "correct": true,
+            "values_correct": true,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"q\": 8, \"y\": 8}",
+            "prompt_tokens": 77,
+            "completion_tokens": 13
+          },
+          {
+            "i": 12,
+            "correct": true,
+            "values_correct": true,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"c\": 1, \"g\": 1}",
+            "prompt_tokens": 66,
+            "completion_tokens": 13
+          },
+          {
+            "i": 13,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"z\": 3, \"d\": 3}",
+            "prompt_tokens": 76,
+            "completion_tokens": 13
+          },
+          {
+            "i": 14,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"q\": 3, \"a\": 3}",
+            "prompt_tokens": 78,
+            "completion_tokens": 13
+          },
+          {
+            "i": 15,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"b\": 3, \"f\": 3}",
+            "prompt_tokens": 82,
+            "completion_tokens": 13
+          }
+        ]
+      },
+      "tool": {
+        "n": 16,
+        "accuracy": 0.375,
+        "values_accuracy": 0.375,
+        "statuses": [
+          "MAX_STEPS",
+          "OK"
+        ],
+        "mean_prompt_tokens": 3060.9,
+        "mean_completion_tokens": 472.9,
+        "mean_reasoning_chars": 32.1,
+        "mean_tool_calls": 2.25,
+        "mean_tool_bytes": 938.6,
+        "mean_wall_s": 21.28,
+        "reason_use_rate": 0.6875,
+        "handshake_first_rate": 0.0,
+        "items": [
+          {
+            "i": 0,
+            "correct": true,
+            "values_correct": true,
+            "status": "OK",
+            "actions": [
+              "reason.solve",
+              "reason.solve",
+              "reason.solve",
+              "reason.solve"
+            ],
+            "answer": "The constraints provided are:\n1. $2 \\le d \\le 8$\n2. $2 \\le p \\le 8$\n3. $2 \\le y \\le 6$\n4. $y + p \\le 13$\n5. $d + p + y = 18$\n6. $p = 7$\n7. $y + d \\le 11$\n8. $y - p = -1$\n\nFrom constraint (6), we have ",
+            "prompt_tokens": 5324,
+            "completion_tokens": 992
+          },
+          {
+            "i": 1,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [
+              "reason.solve",
+              "reason.solve",
+              "reason.solve"
+            ],
+            "answer": "The constraints are:\n1. $1 \\le q \\le 5$\n2. $1 \\le z \\le 6$\n3. $1 \\le c \\le 7$\n4. $1 \\le a \\le 5$\n5. $c \\cdot q = 20$\n6. $2a + c = 15$\n7. $c + a + z = 15$\n\nFrom (5), since $q$ is an integer between 1 a",
+            "prompt_tokens": 3664,
+            "completion_tokens": 938
+          },
+          {
+            "i": 2,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [
+              "reason.solve",
+              "reason.solve",
+              "reason.solve"
+            ],
+            "answer": "The constraints provided are:\n1. $1 \\le x \\le 6$\n2. $1 \\le y \\le 5$\n3. $1 \\le a \\le 6$\n4. $2x + y = 16$\n5. $a + x \\le 9$\n6. $y < x$\n7. $x > a$\n8. $a < y$\n9. $x + a \\ge 9$\n\nFrom (4), $y = 16 - 2x$.\nSin",
+            "prompt_tokens": 3701,
+            "completion_tokens": 956
+          },
+          {
+            "i": 3,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [
+              "reason.solve",
+              "reason.solve",
+              "reason.solve",
+              "reason.solve"
+            ],
+            "answer": "The constraints are:\n1. $2 \\le c \\le 6$\n2. $2 \\le f \\le 9$\n3. $2 \\le g \\le 9$\n4. $2 \\le x \\le 6$\n5. $f + g + x = 13$\n6. $c - x = -1 \\implies c = x - 1$\n7. $x + g + c = 11$\n\nFrom (6), we can substitute",
+            "prompt_tokens": 5412,
+            "completion_tokens": 1119
+          },
+          {
+            "i": 4,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [
+              "reason.solve",
+              "reason.solve",
+              "reason.solve",
+              "reason.solve"
+            ],
+            "answer": "```json\n{\"x\": 2, \"c\": 2, \"y\": 1, \"f\": 3}\n```",
+            "prompt_tokens": 5360,
+            "completion_tokens": 619
+          },
+          {
+            "i": 5,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [
+              "reason.solve",
+              "reason.solve"
+            ],
+            "answer": "```json\n{\"r\": 5, \"q\": 9, \"e\": 5}\n```",
+            "prompt_tokens": 2214,
+            "completion_tokens": 274
+          },
+          {
+            "i": 6,
+            "correct": false,
+            "values_correct": false,
+            "status": "MAX_STEPS",
+            "actions": [
+              "reason.solve",
+              "reason.solve",
+              "reason.solve",
+              "reason.solve",
+              "reason.solve",
+              "reason.solve",
+              "reason.solve",
+              "reason.solve"
+            ],
+            "answer": "",
+            "prompt_tokens": 12243,
+            "completion_tokens": 1198
+          },
+          {
+            "i": 7,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [
+              "reason.solve",
+              "reason.solve",
+              "reason.solve"
+            ],
+            "answer": "The constraints are:\n1. $1 \\le g \\le 6$\n2. $1 \\le e \\le 8$\n3. $1 \\le y \\le 5$\n4. $2e + y = 16$\n5. $y = 4$\n6. $y + e + g = 12$\n\nFrom constraint (5), we have $y=4$.\n\nSubstitute $y=4$ into constraint (4)",
+            "prompt_tokens": 3561,
+            "completion_tokens": 675
+          },
+          {
+            "i": 8,
+            "correct": true,
+            "values_correct": true,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"x\": 5, \"r\": 8}",
+            "prompt_tokens": 444,
+            "completion_tokens": 13
+          },
+          {
+            "i": 9,
+            "correct": true,
+            "values_correct": true,
+            "status": "OK",
+            "actions": [
+              "reason.solve",
+              "reason.solve"
+            ],
+            "answer": "{\"d\": 9, \"e\": 3}",
+            "prompt_tokens": 2090,
+            "completion_tokens": 421
+          },
+          {
+            "i": 10,
+            "correct": true,
+            "values_correct": true,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"e\": 3, \"c\": 2}",
+            "prompt_tokens": 442,
+            "completion_tokens": 13
+          },
+          {
+            "i": 11,
+            "correct": true,
+            "values_correct": true,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"q\": 8, \"y\": 8}",
+            "prompt_tokens": 443,
+            "completion_tokens": 13
+          },
+          {
+            "i": 12,
+            "correct": true,
+            "values_correct": true,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"c\": 1, \"g\": 1}",
+            "prompt_tokens": 432,
+            "completion_tokens": 13
+          },
+          {
+            "i": 13,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"z\": 3, \"d\": 3}",
+            "prompt_tokens": 442,
+            "completion_tokens": 13
+          },
+          {
+            "i": 14,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [
+              "reason.solve",
+              "reason.solve"
+            ],
+            "answer": "{\"q\": 3, \"a\": 3}",
+            "prompt_tokens": 2060,
+            "completion_tokens": 195
+          },
+          {
+            "i": 15,
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [
+              "reason.solve"
+            ],
+            "answer": "{\"b\": 3, \"f\": 3}",
+            "prompt_tokens": 1142,
+            "completion_tokens": 115
+          }
+        ]
+      },
+      "advised": {
+        "n": 16,
+        "accuracy": 0.25,
+        "values_accuracy": 0.25,
+        "statuses": [
+          "OK"
+        ],
+        "mean_prompt_tokens": 1099.2,
+        "mean_completion_tokens": 53.8,
+        "mean_reasoning_chars": 0.0,
+        "mean_tool_calls": 0.25,
+        "mean_tool_bytes": 106.0,
+        "mean_wall_s": 2.58,
+        "reason_use_rate": 0.125,
+        "handshake_first_rate": 0.0,
+        "by_subset": {
+          "hard": {
+            "n": 8,
+            "accuracy": 0.125,
+            "reason_use_rate": 0.25
+          },
+          "easy": {
+            "n": 8,
+            "accuracy": 0.375,
+            "reason_use_rate": 0.0
+          }
+        },
+        "items": [
+          {
+            "i": 0,
+            "tag": "hard",
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"d\": 4}",
+            "prompt_tokens": 799,
+            "completion_tokens": 7
+          },
+          {
+            "i": 1,
+            "tag": "hard",
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"q\": 4, \"z\": 6, \"c\": 5, \"a\": 3}",
+            "prompt_tokens": 798,
+            "completion_tokens": 25
+          },
+          {
+            "i": 2,
+            "tag": "hard",
+            "correct": true,
+            "values_correct": true,
+            "status": "OK",
+            "actions": [
+              "reason.solve",
+              "reason.solve"
+            ],
+            "answer": "{\"x\": 6, \"y\": 4, \"a\": 3}",
+            "prompt_tokens": 3323,
+            "completion_tokens": 311
+          },
+          {
+            "i": 3,
+            "tag": "hard",
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [
+              "reason.solve",
+              "reason.solve"
+            ],
+            "answer": "{\"c\": 3, \"f\": 7, \"g\": 5, \"x\": 4}",
+            "prompt_tokens": 3326,
+            "completion_tokens": 338
+          },
+          {
+            "i": 4,
+            "tag": "hard",
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"x\": 2, \"c\": 2, \"y\": 2, \"f\": 1}",
+            "prompt_tokens": 795,
+            "completion_tokens": 25
+          },
+          {
+            "i": 5,
+            "tag": "hard",
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"r\": 5, \"q\": 9, \"e\": 5}",
+            "prompt_tokens": 785,
+            "completion_tokens": 19
+          },
+          {
+            "i": 6,
+            "tag": "hard",
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"c\": 5, \"z\": 8, \"q\": 7, \"r\": 0}",
+            "prompt_tokens": 803,
+            "completion_tokens": 25
+          },
+          {
+            "i": 7,
+            "tag": "hard",
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"g\": 4}",
+            "prompt_tokens": 795,
+            "completion_tokens": 7
+          },
+          {
+            "i": 8,
+            "tag": "easy",
+            "correct": true,
+            "values_correct": true,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"x\": 5, \"r\": 8}",
+            "prompt_tokens": 772,
+            "completion_tokens": 13
+          },
+          {
+            "i": 9,
+            "tag": "easy",
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"d\": 3, \"e\": 9}",
+            "prompt_tokens": 773,
+            "completion_tokens": 13
+          },
+          {
+            "i": 10,
+            "tag": "easy",
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"e\": 1, \"c\": 4}",
+            "prompt_tokens": 770,
+            "completion_tokens": 13
+          },
+          {
+            "i": 11,
+            "tag": "easy",
+            "correct": true,
+            "values_correct": true,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"q\": 8, \"y\": 8}",
+            "prompt_tokens": 771,
+            "completion_tokens": 13
+          },
+          {
+            "i": 12,
+            "tag": "easy",
+            "correct": true,
+            "values_correct": true,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"c\": 1, \"g\": 1}",
+            "prompt_tokens": 760,
+            "completion_tokens": 13
+          },
+          {
+            "i": 13,
+            "tag": "easy",
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"z\": 3, \"d\": 3}",
+            "prompt_tokens": 770,
+            "completion_tokens": 13
+          },
+          {
+            "i": 14,
+            "tag": "easy",
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"q\": 3, \"a\": 3}",
+            "prompt_tokens": 772,
+            "completion_tokens": 13
+          },
+          {
+            "i": 15,
+            "tag": "easy",
+            "correct": false,
+            "values_correct": false,
+            "status": "OK",
+            "actions": [],
+            "answer": "{\"b\": 3, \"f\": 3}",
+            "prompt_tokens": 776,
+            "completion_tokens": 13
+          }
+        ],
+        "prompt_hint_used": true
+      }
+    },
+    "H-a-scale": {
+      "context": {
+        "n": 20,
+        "accuracy": 0.0,
+        "statuses": [
+          "OK"
+        ],
+        "mean_prompt_tokens": 6066.1,
+        "mean_completion_tokens": 6.5,
+        "mean_reasoning_chars": 0.0,
+        "mean_tool_calls": 0.0,
+        "mean_tool_bytes": 0.0,
+        "mean_wall_s": 0.83,
+        "reason_use_rate": 0.0,
+        "handshake_first_rate": 0.0,
+        "total_facts": 800,
+        "facts_in_context": 402,
+        "dropped_fraction": 0.4975,
+        "answerable_in_context": 0.3
+      },
+      "memory": {
+        "n": 20,
+        "accuracy": 0.35,
+        "statuses": [
+          "OK"
+        ],
+        "mean_prompt_tokens": 1067.5,
+        "mean_completion_tokens": 95.5,
+        "mean_reasoning_chars": 108.0,
+        "mean_tool_calls": 1.0,
+        "mean_tool_bytes": 952.6,
+        "mean_wall_s": 4.83,
+        "reason_use_rate": 0.0,
+        "handshake_first_rate": 0.0
+      }
+    },
+    "H-b-e2e": {
+      "no_learn": {
+        "n": 12,
+        "accuracy": 0.0,
+        "statuses": [
+          "EMPTY",
+          "OK"
+        ],
+        "mean_prompt_tokens": 1095.8,
+        "mean_completion_tokens": 89.8,
+        "mean_reasoning_chars": 122.4,
+        "mean_tool_calls": 1.0,
+        "mean_tool_bytes": 870.7,
+        "mean_wall_s": 4.82,
+        "reason_use_rate": 0.0,
+        "memory_use_rate": 1.0,
+        "handshake_first_rate": 0.0,
+        "items": [
+          {
+            "i": 0,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "I do not have information about how many people live in the Jade Quill.",
+            "prompt_tokens": 1071,
+            "completion_tokens": 173
+          },
+          {
+            "i": 1,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "The Sable Forge is not mentioned in the retrieved facts.",
+            "prompt_tokens": 1117,
+            "completion_tokens": 58
+          },
+          {
+            "i": 2,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "2236",
+            "prompt_tokens": 1093,
+            "completion_tokens": 54
+          },
+          {
+            "i": 3,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "Heskzan Station is 2166 meters above sea level.",
+            "prompt_tokens": 1132,
+            "completion_tokens": 61
+          },
+          {
+            "i": 4,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "The Lilac Lantern has 63 docks.",
+            "prompt_tokens": 1101,
+            "completion_tokens": 55
+          },
+          {
+            "i": 5,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "The Crimson Anvil is not mentioned in the retrieved facts.",
+            "prompt_tokens": 1118,
+            "completion_tokens": 63
+          },
+          {
+            "i": 6,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "I do not have information about the number of docks in the Saffron Thicket.",
+            "prompt_tokens": 1073,
+            "completion_tokens": 168
+          },
+          {
+            "i": 7,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "I do not have information about the population of the Ashen Garden.",
+            "prompt_tokens": 1072,
+            "completion_tokens": 228
+          },
+          {
+            "i": 8,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "The provided memory does not contain information about the number of docks at Coral Orchard.",
+            "prompt_tokens": 1087,
+            "completion_tokens": 63
+          },
+          {
+            "i": 9,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "The Golden Loom's height above sea level is not available in the memory.",
+            "prompt_tokens": 1095,
+            "completion_tokens": 65
+          },
+          {
+            "i": 10,
+            "correct": false,
+            "status": "EMPTY",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "",
+            "prompt_tokens": 1068,
+            "completion_tokens": 45
+          },
+          {
+            "i": 11,
+            "correct": false,
+            "status": "EMPTY",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "",
+            "prompt_tokens": 1122,
+            "completion_tokens": 45
+          }
+        ]
+      },
+      "fly_update": {
+        "n": 12,
+        "accuracy": 0.75,
+        "statuses": [
+          "OK"
+        ],
+        "mean_prompt_tokens": 1134.1,
+        "mean_completion_tokens": 94.3,
+        "mean_reasoning_chars": 139.0,
+        "mean_tool_calls": 1.0,
+        "mean_tool_bytes": 989.8,
+        "mean_wall_s": 5.02,
+        "reason_use_rate": 0.0,
+        "memory_use_rate": 1.0,
+        "handshake_first_rate": 0.0,
+        "items": [
+          {
+            "i": 0,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "I do not have information about how many people live in the Jade Quill.",
+            "prompt_tokens": 1073,
+            "completion_tokens": 174
+          },
+          {
+            "i": 1,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "4290",
+            "prompt_tokens": 1151,
+            "completion_tokens": 51
+          },
+          {
+            "i": 2,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "2166",
+            "prompt_tokens": 1138,
+            "completion_tokens": 54
+          },
+          {
+            "i": 3,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "2236",
+            "prompt_tokens": 1143,
+            "completion_tokens": 50
+          },
+          {
+            "i": 4,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "41",
+            "prompt_tokens": 1110,
+            "completion_tokens": 47
+          },
+          {
+            "i": 5,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "1385",
+            "prompt_tokens": 1123,
+            "completion_tokens": 55
+          },
+          {
+            "i": 6,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "The Saffron Thicket has 82 docks.",
+            "prompt_tokens": 1128,
+            "completion_tokens": 57
+          },
+          {
+            "i": 7,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "3094",
+            "prompt_tokens": 1145,
+            "completion_tokens": 432
+          },
+          {
+            "i": 8,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "73",
+            "prompt_tokens": 1117,
+            "completion_tokens": 49
+          },
+          {
+            "i": 9,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "The Golden Loom's height above sea level is not available in the memory.",
+            "prompt_tokens": 1098,
+            "completion_tokens": 65
+          },
+          {
+            "i": 10,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "1761",
+            "prompt_tokens": 1193,
+            "completion_tokens": 49
+          },
+          {
+            "i": 11,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "4227",
+            "prompt_tokens": 1190,
+            "completion_tokens": 49
+          }
+        ]
+      },
+      "alias_ingest": {
+        "n": 12,
+        "accuracy": 0.8333,
+        "statuses": [
+          "OK"
+        ],
+        "mean_prompt_tokens": 1111.7,
+        "mean_completion_tokens": 59.8,
+        "mean_reasoning_chars": 22.1,
+        "mean_tool_calls": 1.0,
+        "mean_tool_bytes": 931.8,
+        "mean_wall_s": 3.49,
+        "reason_use_rate": 0.0,
+        "memory_use_rate": 1.0,
+        "handshake_first_rate": 0.0,
+        "items": [
+          {
+            "i": 0,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "4029",
+            "prompt_tokens": 1066,
+            "completion_tokens": 54
+          },
+          {
+            "i": 1,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "4290",
+            "prompt_tokens": 1172,
+            "completion_tokens": 51
+          },
+          {
+            "i": 2,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "2166",
+            "prompt_tokens": 1141,
+            "completion_tokens": 54
+          },
+          {
+            "i": 3,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "Azure Furnace is 2236 meters above sea level.",
+            "prompt_tokens": 1160,
+            "completion_tokens": 59
+          },
+          {
+            "i": 4,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "Lilac Lantern has 41 docks.",
+            "prompt_tokens": 1118,
+            "completion_tokens": 54
+          },
+          {
+            "i": 5,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "1385",
+            "prompt_tokens": 1096,
+            "completion_tokens": 55
+          },
+          {
+            "i": 6,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "82",
+            "prompt_tokens": 1065,
+            "completion_tokens": 135
+          },
+          {
+            "i": 7,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "3094",
+            "prompt_tokens": 1079,
+            "completion_tokens": 55
+          },
+          {
+            "i": 8,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "73",
+            "prompt_tokens": 1065,
+            "completion_tokens": 49
+          },
+          {
+            "i": 9,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "4161",
+            "prompt_tokens": 1087,
+            "completion_tokens": 53
+          },
+          {
+            "i": 10,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "1761",
+            "prompt_tokens": 1135,
+            "completion_tokens": 49
+          },
+          {
+            "i": 11,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "4227",
+            "prompt_tokens": 1156,
+            "completion_tokens": 49
+          }
+        ]
+      },
+      "alias_ingest_clean": {
+        "n": 12,
+        "accuracy": 0.75,
+        "statuses": [
+          "OK"
+        ],
+        "mean_prompt_tokens": 1211.2,
+        "mean_completion_tokens": 64.8,
+        "mean_reasoning_chars": 22.9,
+        "mean_tool_calls": 1.08,
+        "mean_tool_bytes": 1004.8,
+        "mean_wall_s": 3.73,
+        "reason_use_rate": 0.0,
+        "memory_use_rate": 1.0,
+        "handshake_first_rate": 0.0,
+        "items": [
+          {
+            "i": 0,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "4029",
+            "prompt_tokens": 1068,
+            "completion_tokens": 54
+          },
+          {
+            "i": 1,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "4290",
+            "prompt_tokens": 1172,
+            "completion_tokens": 51
+          },
+          {
+            "i": 2,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "2166",
+            "prompt_tokens": 1118,
+            "completion_tokens": 54
+          },
+          {
+            "i": 3,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "Azure Furnace is 2236 meters above sea level.",
+            "prompt_tokens": 1161,
+            "completion_tokens": 59
+          },
+          {
+            "i": 4,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "Lilac Lantern has 41 docks.",
+            "prompt_tokens": 1117,
+            "completion_tokens": 54
+          },
+          {
+            "i": 5,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "1385",
+            "prompt_tokens": 1095,
+            "completion_tokens": 55
+          },
+          {
+            "i": 6,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "82",
+            "prompt_tokens": 1083,
+            "completion_tokens": 139
+          },
+          {
+            "i": 7,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "3094",
+            "prompt_tokens": 1080,
+            "completion_tokens": 55
+          },
+          {
+            "i": 8,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall",
+              "memory.recall"
+            ],
+            "answer": "73",
+            "prompt_tokens": 2275,
+            "completion_tokens": 95
+          },
+          {
+            "i": 9,
+            "correct": false,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "The Golden Loom is 4161 meters above sea level.",
+            "prompt_tokens": 1096,
+            "completion_tokens": 63
+          },
+          {
+            "i": 10,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "1761",
+            "prompt_tokens": 1113,
+            "completion_tokens": 49
+          },
+          {
+            "i": 11,
+            "correct": true,
+            "status": "OK",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "4227",
+            "prompt_tokens": 1157,
+            "completion_tokens": 49
+          }
+        ]
+      }
+    }
+  }
+}
