@@ -4,10 +4,20 @@ Topos: this package consumes ``chrysalis_mcp`` (public stdio tool, algorithms, s
 ``chrysalis_mcp`` must never import ``validation`` (enforced by tests).
 """
 
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-RESULTS_DIR = ROOT / "validation" / "results"
+RESULTS_DIR_ENV = "CHRYSALIS_RESULTS_DIR"
+
+
+def _results_dir() -> Path:
+    """Env override (absolute, or relative to ROOT) so runs of different models do not collide."""
+    raw = os.environ.get(RESULTS_DIR_ENV, "").strip()
+    return ROOT / raw if raw else ROOT / "validation" / "results"  # absolute raw wins in ROOT / raw
+
+
+RESULTS_DIR = _results_dir()
 REPORT_PATH = RESULTS_DIR / "RESULTS.md"
 BYTES_PER_TOKEN = 4  # same estimate the server envelope uses for est_tokens
 

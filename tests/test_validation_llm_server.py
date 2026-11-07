@@ -389,3 +389,21 @@ def test_e4b_alias_and_env_override():
     assert Config.from_env({"HOME": "/h"}).alias == "gemma-4-26b-a4b"
     env = {"HOME": "/h", "CHRYSALIS_LLM_ALIAS": "mine"}
     assert Config.from_env(env, profile="e4b").alias == "mine"
+
+
+def test_profile_qwen4b_sets_fields_and_env_still_overrides():
+    cfg = Config.from_env({"HOME": "/h"}, profile="qwen4b")
+    assert cfg.model == Path("/h/.local/share/chrysalis/models/Qwen_Qwen3.5-4B-Q4_0.gguf")
+    assert cfg.alias == "qwen3.5-4b"
+    assert (cfg.ctx, cfg.est_gpu_mib, cfg.est_ram_mib, cfg.threads, cfg.ram_margin_mib) == (
+        8192,
+        5120,
+        2048,
+        6,
+        4096,
+    )
+    over = Config.from_env(
+        {"HOME": "/h", "CHRYSALIS_LLM_PROFILE": "qwen4b", "CHRYSALIS_LLM_EST_GPU_MIB": "6000"}
+    )
+    assert over.est_gpu_mib == 6000 and over.alias == "qwen3.5-4b"
+    assert ls.DEFAULT_PROFILE == "26b"

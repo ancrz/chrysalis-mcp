@@ -128,6 +128,16 @@ PROFILES: dict[str, dict[str, Any]] = {
         "threads": 6,
         "ram_margin_mib": 4096,
     },
+    # Qwen3.5-4B dense, Q4_0 (~2.6 GiB weights); est_gpu is conservative: weights + KV + buffers
+    "qwen4b": {
+        "model": "Qwen_Qwen3.5-4B-Q4_0.gguf",
+        "alias": "qwen3.5-4b",
+        "ctx": 8192,
+        "est_gpu_mib": 5120,
+        "est_ram_mib": 2048,
+        "threads": 6,
+        "ram_margin_mib": 4096,
+    },
 }
 DEFAULT_PROFILE = "26b"
 MODEL_DIR = ".local/share/chrysalis/models"
@@ -515,7 +525,7 @@ def main(
     ap.add_argument(
         "--profile",
         choices=sorted(PROFILES),
-        help="model preset (env CHRYSALIS_LLM_PROFILE; default 26b). The lab uses e4b",
+        help="model preset (env CHRYSALIS_LLM_PROFILE; default 26b). The lab uses e4b or qwen4b",
     )
     ap.add_argument("--force", action="store_true", help="start despite a refused admission")
     args = ap.parse_args(argv)

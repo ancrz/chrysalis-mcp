@@ -3,6 +3,7 @@
 import pytest
 
 from validation import eval_llm, report
+from validation import llm_client as lc
 from validation.datasets import score_puzzle, score_puzzle_values
 
 WHO = {"model": "m", "family": "gemma", "params_b": 4.0, "thinking": True}
@@ -179,3 +180,53 @@ def test_run_records_resolved_model_and_params_b():
     assert res["config"]["model"] == "gemma-4-e4b" and res["config"]["params_b"] == 4.0
     with FakeLlm() as fake:  # the fake serves /models -> {"id": "fake"}
         assert LlmClient(fake.url).model == "fake"
+
+
+def test_params_b_for_qwen_and_gemma_names_do_not_cross_match():
+    assert eval_llm.params_b_for("qwen3.5-4b") == (4.0, None)
+    assert eval_llm.params_b_for("Qwen_Qwen3.5-4B-Q4_0") == (4.0, None)
+    assert eval_llm.params_b_for("gemma-4-e4b") == (4.0, None)
+    assert eval_llm.params_b_for("gemma-4-26B-A4B-it-Q4_0") == (26.0, 4.0)
+
+
+def test_identity_family_for_qwen_and_gemma():
+    assert (
+        eval_llm.identity(lc.LlmClient("http://x/v1", model="qwen3.5-4b"), 4.0)["family"]
+        == "qwen3.5"
+    )
+    assert (
+        eval_llm.identity(lc.LlmClient("http://x/v1", model="gemma-4-e4b"), 4.0)["family"]
+        == "gemma"
+    )
+
+
+def _results_dir_in_fresh_process(env_value: str | None) -> tuple[str, str]:
+    import os
+    import subprocess
+    import sys
+
+    env = {k: v for k, v in os.environ.items() if k != "CHRYSALIS_RESULTS_DIR"}
+    if env_value is not None:
+        env["CHRYSALIS_RESULTS_DIR"] = env_value
+    code = "from validation import RESULTS_DIR, REPORT_PATH; print(RESULTS_DIR); print(REPORT_PATH)"
+    out = subprocess.run(
+        [sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True
+    ).stdout.split()
+    return out[0], out[1]
+
+
+def test_results_dir_default_relative_and_absolute_override(tmp_path):
+    from validation import ROOT
+
+    assert _results_dir_in_fresh_process(None) == (
+        str(ROOT / "validation" / "results"),
+        str(ROOT / "validation" / "results" / "RESULTS.md"),
+    )
+    assert _results_dir_in_fresh_process("validation/results_qwen") == (
+        str(ROOT / "validation" / "results_qwen"),
+        str(ROOT / "validation" / "results_qwen" / "RESULTS.md"),
+    )
+    assert _results_dir_in_fresh_process(str(tmp_path)) == (
+        str(tmp_path),
+        str(tmp_path / "RESULTS.md"),
+    )
