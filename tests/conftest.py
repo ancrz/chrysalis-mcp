@@ -35,3 +35,11 @@ def raw_call(registry: Registry, cache: SessionCache):
         return handle_call(registry, cache, domain, action, **kwargs)
 
     return _raw
+
+
+@pytest.fixture(autouse=True)
+def _isolated_advice_db(tmp_path, monkeypatch):
+    """Never let a test touch the user's real advice.db."""
+    monkeypatch.setenv("CHRYSALIS_ADVICE_DB", str(tmp_path / "advice.db"))
+    monkeypatch.delenv("CHRYSALIS_ADVICE_EXPLORE", raising=False)
+    monkeypatch.delenv("CHRYSALIS_ADVICE_MIN_N", raising=False)

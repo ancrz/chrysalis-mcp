@@ -12,6 +12,7 @@ from typing import Any
 
 from .advisory import Advisor, enforce_enabled
 from .envelope import infer_severity
+from .learning import AdviceStore
 from .profile import ProfileStore
 from .session import SessionCache, resolve_session_id
 
@@ -60,6 +61,7 @@ class Registry:
     _stats: dict[tuple[str, str, str, str], _Counter] = field(default_factory=dict)
     profiles: ProfileStore = field(default_factory=ProfileStore)
     advisor: Advisor = field(default_factory=Advisor.default)
+    advice: AdviceStore = field(default_factory=AdviceStore)
 
     def register(
         self,

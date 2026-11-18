@@ -8,6 +8,7 @@ from ..core.batch import MAX_STEPS, RETURN_MODES, run_batch
 from ..core.envelope import VERBOSITIES
 from ..core.profile import from_fields, score
 from ..core.registry import AGENT_ID_RE, Context, Params, Payload, Registry
+from . import meta_advice
 
 # Terse views cap lists at 5 entries: keep the everyday meta actions first and let the one-off
 # calibrate (named by handshake's next_action) fall off the end.
@@ -61,8 +62,9 @@ def _rule_fields(rules: dict[str, str], hints: dict[str, str]) -> dict[str, Any]
     return {"rules": rules, **({"hints": hints} if hints else {})} if rules else {}
 
 
-def _prompt_hint_field(hints: dict[str, str]) -> dict[str, Any]:
-    text = render_prompt_hint(hints)
+def _prompt_hint_field(hints: dict[str, str], ctx: Context) -> dict[str, Any]:
+    """Rule hints plus the lines learned from this model's outcomes (see meta.feedback)."""
+    text = " ".join(t for t in (render_prompt_hint(hints), meta_advice.learned_hint_text(ctx)) if t)
     return {"prompt_hint": text} if text else {}
 
 
@@ -164,7 +166,7 @@ def _handshake(params: Params, ctx: Context) -> Payload:
         "profile": view,
         "advisories": advisories,
         **_rule_fields(rules, hints),
-        **_prompt_hint_field(hints),
+        **_prompt_hint_field(hints, ctx),
         # prompt_hint stays out of brief/terse: those views clip strings (256/64 chars) and a
         # clipped hint cannot be pasted into a system prompt; they carry 'hints' instead.
         "brief": _with_rules({"profile": view, "advisories": non_neutral}, rules, hints),
@@ -210,7 +212,7 @@ def _calibrate(params: Params, ctx: Context) -> Payload:
         "summary": "scores " + ", ".join(f"{f}={v}" for f, v in scores.items()),
         "scores": scores,
         "profile": profile,
-        **_prompt_hint_field(_rules(ctx)[1]),
+        **_prompt_hint_field(_rules(ctx)[1], ctx),
     }
     if unknown:
         out["ignored"] = unknown
@@ -225,18 +227,15 @@ def _advise(params: Params, ctx: Context) -> Payload:
     known = {f"{d}.{a}" for d, acts in ctx.registry.schema()["domains"].items() for a in acts}
     if name not in known or domain == "meta":
         return {"status": "ERROR", "error": f"unknown or non-advisable action '{name}'"}
-    task = params.get("task")
-    if task is not None and not isinstance(task, dict):
-        return {"status": "ERROR", "error": "task must be an object of task features"}
-    unknown = sorted(set(task or {}) - set(task_features.FEATURES))
-    if unknown:
-        return {
-            "status": "ERROR",
-            "error": f"unknown task features {unknown}",
-            "valid": list(task_features.FEATURES),
-        }
+    task, problem = meta_advice.parse_task(params)
+    if problem is not None:
+        return problem
     profile = ctx.registry.profiles.resolve(ctx.session_id)
-    advisory = ctx.registry.advisor.lookup(name, profile, None, task or {})
+    advisory = ctx.registry.advisor.lookup(name, profile, None, task)
+    features = task_features.derive(task, profile.context)
+    advisory, evidence = meta_advice.blend(
+        ctx, name, features, advisory, explore=params.get("explore"), min_n=params.get("min_n")
+    )
     return {
         "status": "OK",
         "summary": f"{name}: {advisory['level']}",
@@ -247,6 +246,7 @@ def _advise(params: Params, ctx: Context) -> Payload:
             **({"hint": advisory["hint"]} if advisory.get("hint") else {}),
         },
         "source": advisory["source"],
+        **({"evidence": evidence} if evidence is not None else {}),
         "terse": {"level": advisory["level"]},
     }
 
@@ -387,11 +387,16 @@ def register(registry: Registry) -> None:
             "domain": {"type": "string", "required": True},
             "action": {"type": "string", "required": True},
             "task": {"type": "object", "required": False},
+            "explore": {"type": "boolean", "required": False},
+            "min_n": {"type": "integer", "required": False, "min": 1},
         },
         description=(
             "Advisory level of domain.action for THIS task and the session's model: task is an "
             "object of features (n_vars, n_atoms, goal sat|opt, facts, ctx_tokens). Cheap; "
-            "see 'rules' in handshake/discover for the conditions."
+            "see 'rules' in handshake/discover for the conditions. Rules are the prior; after "
+            "min_n (default 8) outcomes sent via meta.feedback for the bucket, the better arm "
+            "is advised (Thompson sampling, seeded per session; explore=false or "
+            "CHRYSALIS_ADVICE_EXPLORE=0 picks the higher posterior mean). 'evidence' says which."
         ),
         example={"domain": "reason", "action": "solve", "task": {"n_atoms": 9, "goal": "sat"}},
     )
@@ -410,6 +415,7 @@ def register(registry: Registry) -> None:
         ),
         example={"scope": "session"},
     )
+    meta_advice.register(registry)
     steps_example: list[dict[str, Any]] = [
         {"id": "a", "domain": "meta", "action": "discover", "store_as": "d"},
         {"id": "b", "domain": "meta", "action": "stats", "params": {"scope": "all"}},
