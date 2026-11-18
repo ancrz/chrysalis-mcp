@@ -10,10 +10,13 @@ def test_invalid_action_returns_alternatives(call):
     out = call("meta", "bogus")
     assert out["status"] == "ERROR"
     assert out["valid"] == [
+        "advice_reset",
+        "advice_stats",
         "advise",
         "batch",
         "calibrate",
         "discover",
+        "feedback",
         "handshake",
         "schema",
         "stats",
