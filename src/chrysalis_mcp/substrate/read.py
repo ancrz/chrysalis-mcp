@@ -7,6 +7,7 @@ from typing import Any, Protocol
 
 import numpy as np
 
+from .write import protected_clause
 from .store import (
     MAX_VEC_K,
     Database,
@@ -30,6 +31,9 @@ _COUNT_SQL = {
     "teach_queries": "SELECT COUNT(*) FROM teach_queries",
     "node_kcs": "SELECT COUNT(*) FROM node_kcs",
     "edge_usage": "SELECT COUNT(*) FROM edge_usage",
+    "assoc_tags": "SELECT COUNT(*) FROM assoc_tags",
+    "flyvec_tokens": "SELECT COUNT(*) FROM flyvec_tokens",
+    "flyvec_nodes": "SELECT COUNT(*) FROM flyvec_nodes",
 }
 
 
@@ -59,6 +63,12 @@ class SubstrateRead(Protocol):
     ) -> tuple[list[int], list[tuple[int, int, float]]]: ...
     def live_nodes(self, node_ids: Iterable[int]) -> set[int]: ...
     def log_tail(self, n: int = 10) -> list[Row]: ...
+    def capture_stats(self, window: int, nodes: Iterable[int]) -> dict[str, int]: ...
+    def flyvec_info(self) -> Row | None: ...
+    def flyvec_tokens(self, tokens: Iterable[str]) -> dict[str, tuple[int, ...]]: ...
+    def flyvec_node_vectors(self) -> tuple[list[int], np.ndarray]: ...
+    def training_sentences(self, limit: int) -> list[tuple[str, str, str]]: ...
+    def node_texts(self, limit: int) -> list[tuple[int, str]]: ...
 
 
 def unpack_active(blob: bytes) -> tuple[int, ...]:
@@ -375,6 +385,63 @@ class SqliteRead:
                 (json.dumps(ids),),
             )
             return {r[0] for r in rows}
+
+    def capture_stats(self, window: int, nodes: Iterable[int]) -> dict[str, int]:
+        """Associations a capture pass exempts: tagged in the window, confirmed, and either."""
+        confirmed = json.dumps(sorted(set(nodes)))
+        tagged_sql, tagged_args = protected_clause(window, [])
+        any_sql, any_args = protected_clause(window, list(json.loads(confirmed)))
+        sql = {
+            "assoc": ("1", []),
+            "tagged": (tagged_sql, tagged_args),
+            "confirmed": ("assoc.node_id IN (SELECT value FROM json_each(?))", [confirmed]),
+            "captured": (any_sql, any_args),
+        }
+        with self._db.reader() as conn:
+            return {
+                key: conn.execute(f"SELECT COUNT(*) FROM assoc WHERE {clause}", args).fetchone()[0]
+                for key, (clause, args) in sql.items()
+            }
+
+    def flyvec_info(self) -> Row | None:
+        """Parameters of the trained FlyVec model (``None`` when never trained)."""
+        with self._db.reader() as conn:
+            row = conn.execute("SELECT value FROM meta WHERE key = 'flyvec_info'").fetchone()
+        return json.loads(row[0]) if row else None
+
+    def flyvec_tokens(self, tokens: Iterable[str]) -> dict[str, tuple[int, ...]]:
+        names = sorted(set(tokens))
+        if not names:
+            return {}
+        with self._db.reader() as conn:
+            rows = conn.execute(
+                "SELECT token, kcs FROM flyvec_tokens "
+                "WHERE token IN (SELECT value FROM json_each(?))",
+                (json.dumps(names),),
+            )
+            return {r[0]: struct.unpack(f"<{len(r[1]) // 2}H", r[1]) for r in rows}
+
+    def flyvec_node_vectors(self) -> tuple[list[int], np.ndarray]:
+        with self._db.reader() as conn:
+            rows = conn.execute("SELECT node_id, vec FROM flyvec_nodes ORDER BY node_id").fetchall()
+        if not rows:
+            return [], np.zeros((0, 0), dtype=np.float32)
+        return [r[0] for r in rows], np.vstack([np.frombuffer(r[1], dtype="<f4") for r in rows])
+
+    def training_sentences(self, limit: int) -> list[tuple[str, str, str]]:
+        """Valid edges ``(subject text, relation, object text)``, oldest first, <= ``limit``."""
+        with self._db.reader() as conn:
+            rows = conn.execute(
+                "SELECT s.text, e.rel, o.text FROM edges e JOIN nodes s ON s.id = e.subj "
+                "JOIN nodes o ON o.id = e.obj WHERE e.valid = 1 ORDER BY e.id LIMIT ?",
+                (limit,),
+            )
+            return [(r[0], r[1], r[2]) for r in rows]
+
+    def node_texts(self, limit: int) -> list[tuple[int, str]]:
+        with self._db.reader() as conn:
+            rows = conn.execute("SELECT id, text FROM nodes ORDER BY id LIMIT ?", (limit,))
+            return [(r[0], r[1]) for r in rows]
 
     def log_tail(self, n: int = 10) -> list[Row]:
         with self._db.reader() as conn:

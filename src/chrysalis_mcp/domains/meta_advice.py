@@ -9,6 +9,7 @@ proven by ``reason.solve``; an optimum that cannot be proven (timeout, unbounded
 problem with minimize/maximize cannot be judged and is rejected without recording anything.
 """
 
+import sqlite3
 from fractions import Fraction
 from typing import Any
 
@@ -16,6 +17,7 @@ from ..core import learning, task_features
 from ..core.profile import Profile
 from ..core.registry import Context, Params, Payload, Registry
 
+ADVICE_RETRY_AFTER_S = 2
 MAX_PAGE = 200
 DEFAULT_PAGE = 20
 
@@ -202,7 +204,15 @@ def _feedback(params: Params, ctx: Context) -> Payload:
     model, thinking = who
     bucket = learning.bucket_key(features)
     arm = "used" if used else "self"
-    cell = ctx.registry.advice.record(model, thinking, name, bucket, arm, outcome == "success")
+    try:
+        cell = ctx.registry.advice.record(model, thinking, name, bucket, arm, outcome == "success")
+    except sqlite3.Error as exc:  # typically "database is locked" under concurrent writers
+        return _err(
+            f"advice store unavailable ({exc}); nothing was recorded",
+            retryable=True,
+            retry_after_s=ADVICE_RETRY_AFTER_S,
+            next_action=f"Retry meta.feedback in about {ADVICE_RETRY_AFTER_S} seconds.",
+        )
     used_cell, own_cell = ctx.registry.advice.cells(model, thinking, name, bucket)
     ev = learning.evidence(
         "recorded", used_cell, own_cell, bucket=bucket,

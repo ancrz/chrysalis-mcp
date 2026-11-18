@@ -49,7 +49,7 @@ def _teach(call, query: str = ALIAS_Q.replace("How high", "Tell me how high"), n
 
 def test_fresh_database_is_v4_with_an_empty_examples_table(tmp_path):
     r, _ = open_substrate(tmp_path / "fresh.db")
-    assert r.contract() == "v5" == store_mod.SUBSTRATE_CONTRACT
+    assert r.contract() == "v6" == store_mod.SUBSTRATE_CONTRACT
     assert r.counts()["examples"] == 0 and r.examples_for([1, 2]) == {}
 
 
@@ -66,7 +66,7 @@ def test_v3_database_is_upgraded_idempotently_without_backfill(tmp_path):
     conn.commit()
     conn.close()
     r, _ = open_substrate(path)
-    assert r.contract() == "v5"
+    assert r.contract() == "v6"
     assert r.counts()["nodes"] == 1 and r.counts()["assoc"] == 1 and r.counts()["examples"] == 0
     schema = sqlite3.connect(path).execute("SELECT type, name FROM sqlite_master ORDER BY 1,2")
     first = schema.fetchall()

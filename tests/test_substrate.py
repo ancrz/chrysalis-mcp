@@ -39,14 +39,14 @@ def test_migration_idempotent(tmp_path):
     first = _schema(db)
     r2, _ = open_substrate(db)
     assert _schema(db) == first
-    assert r1.contract() == r2.contract() == SUBSTRATE_CONTRACT == "v5"
+    assert r1.contract() == r2.contract() == SUBSTRATE_CONTRACT == "v6"
 
 
 def test_newer_contract_rejected(tmp_path):
     db = tmp_path / "s.db"
     open_substrate(db)
     conn = sqlite3.connect(db)
-    conn.execute("UPDATE meta SET value = 'v6' WHERE key = 'contract'")
+    conn.execute("UPDATE meta SET value = 'v7' WHERE key = 'contract'")
     conn.commit()
     conn.close()
     with pytest.raises(SubstrateContractError):

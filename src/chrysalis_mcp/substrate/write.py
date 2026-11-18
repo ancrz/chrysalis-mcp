@@ -57,7 +57,15 @@ class SubstrateWrite(Protocol):
         node_factors: Mapping[int, float] | None = None,
         default_factor: float | None = None,
         usage_evaporation: tuple[float, float] | None = None,
+        capture_window: int | None = None,
+        capture_nodes: Sequence[int] = (),
     ) -> tuple[int, int]: ...
+    def flyvec_replace(
+        self,
+        tokens: Mapping[str, Sequence[int]],
+        nodes: Mapping[int, Sequence[float]],
+        info: Mapping[str, Any],
+    ) -> int: ...
     def backfill_teach(self, rows: Sequence[tuple[int, str, Sequence[int], int]]) -> int: ...
     def bump_usage(self, edge_ids: Iterable[int], cap: float) -> int: ...
     def backup(self, reason: str) -> dict[str, Any]: ...
@@ -185,6 +193,41 @@ def _update_example(
         if mass <= 0.0:
             conn.execute("DELETE FROM examples WHERE node_id = ? AND query = ?", (node_id, query))
             _update_teach(conn, node_id, kc_ids, query, ts, keep=False)
+
+
+TAG_CLOCK_KEY = "tag_clock"
+
+
+def _tag(conn: sqlite3.Connection, node_id: int, kc_ids: Sequence[int]) -> None:
+    """Synaptic tag: stamp the associations a positive ``update`` touched with a logical clock."""
+    conn.execute(
+        "INSERT INTO meta (key, value) VALUES (?, '1') "
+        "ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1",
+        (TAG_CLOCK_KEY,),
+    )
+    clock = conn.execute("SELECT CAST(value AS INTEGER) FROM meta WHERE key = ?", (TAG_CLOCK_KEY,))
+    stamp = clock.fetchone()[0]
+    conn.executemany(
+        "INSERT INTO assoc_tags (kc, node_id, tag) VALUES (?, ?, ?) "
+        "ON CONFLICT(kc, node_id) DO UPDATE SET tag = excluded.tag",
+        ((kc, node_id, stamp) for kc in kc_ids),
+    )
+
+
+def protected_clause(window: int | None, nodes: Sequence[int]) -> tuple[str, list[Any]]:
+    """SQL predicate (over the ``assoc`` table) of the associations captured to long-term memory.
+
+    Captured = tagged within the last ``window`` updates, or belonging to a confirmed node.
+    Clause ``0`` when capture is off. Only fixed text is interpolated; values are bound.
+    """
+    if window is None:
+        return "0", []
+    clause = (
+        "(EXISTS (SELECT 1 FROM assoc_tags t WHERE t.kc = assoc.kc AND t.node_id = assoc.node_id "
+        "AND t.tag > (SELECT COALESCE(CAST(value AS INTEGER), 0) FROM meta WHERE key = ?) - ?) "
+        "OR assoc.node_id IN (SELECT value FROM json_each(?)))"
+    )
+    return clause, [TAG_CLOCK_KEY, window, json.dumps(sorted(set(nodes)))]
 
 
 class SqliteWrite:
@@ -385,6 +428,8 @@ class SqliteWrite:
                     "ON CONFLICT(kc, node_id) DO UPDATE SET weight = weight + excluded.weight",
                     (kc, node_id, delta),
                 )
+            if delta > 0:
+                _tag(conn, node_id, ids)
             if example is not None:
                 _update_example(conn, node_id, ids, delta, example)
             _log(conn, "reinforce", {"node_id": node_id, "n_kcs": len(ids), "delta": delta})
@@ -399,6 +444,8 @@ class SqliteWrite:
         node_factors: Mapping[int, float] | None = None,
         default_factor: float | None = None,
         usage_evaporation: tuple[float, float] | None = None,
+        capture_window: int | None = None,
+        capture_nodes: Sequence[int] = (),
     ) -> tuple[int, int]:
         """Replay, decay and prune ``assoc`` in one transaction: ``(decayed, pruned)``.
 
@@ -408,11 +455,15 @@ class SqliteWrite:
            uses its own factor and every other node ``default_factor``.
         3. prune ``|weight| < prune_below``; examples/teach queries of nodes left without any
            association are dropped (they follow assoc).
+        ``capture_window`` (synaptic tagging & capture): associations tagged within the last
+        ``capture_window`` updates, or belonging to ``capture_nodes`` (confirmed), are exempt from
+        decay and prune; the exemption never grows a weight. ``None`` = off (plain decay).
         ``usage_evaporation = (factor, floor)`` also evaporates ``edge_usage`` (``usage *= factor``,
         rows below ``floor`` deleted); source facts (edges) are never modified. The log is
         append-only and is never pruned.
         """
         replayed = 0
+        keep, keep_args = protected_clause(capture_window, capture_nodes)
         with self._db.transaction() as conn:
             for kc_ids, node_id, delta in replay or ():
                 kcs = sorted(set(kc_ids))
@@ -431,22 +482,29 @@ class SqliteWrite:
                     )
                 replayed += 1
             if node_factors is None:
-                decayed = conn.execute("UPDATE assoc SET weight = weight * ?", (decay,)).rowcount
+                decayed = conn.execute(
+                    f"UPDATE assoc SET weight = weight * ? WHERE NOT {keep}", (decay, *keep_args)
+                ).rowcount
             else:
                 decayed = 0
                 for node_id, factor in node_factors.items():
                     decayed += conn.execute(
-                        "UPDATE assoc SET weight = weight * ? WHERE node_id = ?", (factor, node_id)
+                        f"UPDATE assoc SET weight = weight * ? WHERE node_id = ? AND NOT {keep}",
+                        (factor, node_id, *keep_args),
                     ).rowcount
                 rest = decay if default_factor is None else default_factor
                 decayed += conn.execute(
                     "UPDATE assoc SET weight = weight * ? WHERE node_id NOT IN "
-                    "(SELECT value FROM json_each(?))",
-                    (rest, json.dumps(list(node_factors))),
+                    f"(SELECT value FROM json_each(?)) AND NOT {keep}",
+                    (rest, json.dumps(list(node_factors)), *keep_args),
                 ).rowcount
             pruned = conn.execute(
-                "DELETE FROM assoc WHERE abs(weight) < ?", (prune_below,)
+                f"DELETE FROM assoc WHERE abs(weight) < ? AND NOT {keep}", (prune_below, *keep_args)
             ).rowcount
+            conn.execute(  # tags follow assoc
+                "DELETE FROM assoc_tags WHERE NOT EXISTS (SELECT 1 FROM assoc a "
+                "WHERE a.kc = assoc_tags.kc AND a.node_id = assoc_tags.node_id)"
+            )
             # Examples follow assoc: a node whose assoc is fully gone keeps no examples.
             conn.execute("DELETE FROM examples WHERE node_id NOT IN (SELECT node_id FROM assoc)")
             conn.execute(
@@ -471,9 +529,36 @@ class SqliteWrite:
                     "replayed": replayed,
                     "usage_weighted": node_factors is not None,
                     "usage_pruned": usage_pruned,
+                    "capture_window": capture_window,
                 },
             )
         return decayed, pruned
+
+    def flyvec_replace(
+        self,
+        tokens: Mapping[str, Sequence[int]],
+        nodes: Mapping[int, Sequence[float]],
+        info: Mapping[str, Any],
+    ) -> int:
+        """Replace the whole FlyVec model: token projections, node vectors and ``flyvec_info``."""
+        with self._db.transaction() as conn:
+            conn.execute("DELETE FROM flyvec_tokens")
+            conn.execute("DELETE FROM flyvec_nodes")
+            conn.executemany(
+                "INSERT INTO flyvec_tokens (token, kcs) VALUES (?, ?)",
+                ((tok, struct.pack(f"<{len(k)}H", *k)) for tok, k in sorted(tokens.items())),
+            )
+            conn.executemany(
+                "INSERT INTO flyvec_nodes (node_id, vec) VALUES (?, ?)",
+                ((nid, struct.pack(f"<{len(v)}f", *v)) for nid, v in sorted(nodes.items())),
+            )
+            conn.execute(
+                "INSERT INTO meta (key, value) VALUES ('flyvec_info', ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (json.dumps(dict(info), sort_keys=True),),
+            )
+            _log(conn, "flyvec_replace", {"tokens": len(tokens), "nodes": len(nodes), **info})
+        return len(tokens)
 
     def backfill_teach(self, rows: Sequence[tuple[int, str, Sequence[int], int]]) -> int:
         """v4 -> v5 backfill: ``(node_id, query, active, ts)`` teach queries of old examples."""

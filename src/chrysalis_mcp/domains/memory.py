@@ -34,18 +34,40 @@ Bio layer (substrate v5; each mechanism has a biological analogue and an explici
   and evaporates the counters. Only learned ``assoc`` and the usage counters change: source
   facts (edges) are never deleted or reweighted.
 
+Low-priority bio tools (substrate v6; each opt-in, defaults keep the previous behaviour):
+
+* Synaptic tagging & capture (Frey & Morris 1997). ``update`` stamps the associations it touches
+  with a logical update counter (a "tag"). ``consolidate(capture=True, capture_window=N)`` exempts
+  from decay and prune the associations tagged within the last ``N`` updates and those of nodes
+  with at least ``capture_confirmations`` distinct teach phrasings ("captured" to long-term);
+  untagged residue decays as usual. The result reports the counts.
+* Lateral inhibition (fly APL neuron, Lin et al. 2014). ``recall(inhibition="adaptive", z=1.0)``
+  keeps, for the QUERY code only, the Kenyon cells above ``mean + z * std`` (clamped to
+  ``[k/2, 2k]``) instead of a fixed ``k``; stored codes never change. The learned boost is
+  normalised by the query's actual number of cells, so its scale is unchanged.
+* Sparse distributed memory (Kanerva 1988). ``recall(mode="sdm", radius=r)`` reads every stored node
+  code within Hamming distance ``r`` of the query code, ranked by graded activation
+  ``(r + 1 - hamming) / (r + 1)``; deterministic, paginated by ``cursor``. No learned boost.
+* FlyVec-lite (Liang et al. 2021). ``flyvec_train`` learns per-token Kenyon-cell codes from the
+  knowledge base itself; ``recall(encoder="flyvec")`` retrieves the seeds with them instead of
+  character n-grams (limits in ``algorithms/flyvec.py``: no generalisation to unseen words).
+* ``learned_legacy=True`` restores the pre-v5 ``learned_as`` gate (rare shared word over the 64 most
+  recent examples; order dependent, fooled by common words) for callers that relied on it.
+
 Depends on ``substrate``, ``algorithms`` and ``core`` only.
 """
 
 import math
 import os
+import re
 import threading
+from dataclasses import dataclass
 from collections.abc import Callable, Iterable
 from typing import Any
 
 import numpy as np
 
-from ..algorithms import FlyHash, features, personalized_pagerank
+from ..algorithms import FlyHash, features, flyvec, personalized_pagerank
 from ..core.registry import Context, Params, Payload, Registry
 from ..substrate import BackupError, open_substrate
 
@@ -55,7 +77,7 @@ MAX_REL_CHARS = 128
 MAX_K = 50
 DEFAULT_K = 5
 MAX_ABS_NUMBER = 1e300  # keeps sums/norms far below float64 overflow
-RECALL_MODES = ("ppr", "seeds")
+RECALL_MODES = ("ppr", "seeds", "sdm")
 DEFAULT_MODE = "ppr"
 SEED_BACKENDS = ("cosine", "flyhash")
 DEFAULT_BACKEND = "cosine"
@@ -113,6 +135,23 @@ UNUSED_DECAY_EXPONENT = 1.5
 USAGE_EVAPORATION = 0.9
 USAGE_FLOOR = 0.05
 MAX_USAGE_EDGES = 256
+# Legacy (pre-v5) learned_as gate, kept behind ``learned_legacy=True``.
+RARE_TOKEN_SHARE = 0.1
+MIN_TOKEN_CHARS = 3
+BACKGROUND_EXAMPLES = 64
+# Low-priority bio tools.
+INHIBITIONS = ("fixed", "adaptive")
+DEFAULT_INHIBITION = "fixed"
+DEFAULT_Z = 1.0
+MAX_Z = 5.0
+ENCODERS = ("ngram", "flyvec")
+DEFAULT_ENCODER = "ngram"
+DEFAULT_CAPTURE_WINDOW = 50
+MAX_CAPTURE_WINDOW = 1_000_000
+DEFAULT_CAPTURE_CONFIRMATIONS = 2
+SDM_MAX_PAGE = MAX_K
+FLYVEC_MAX_EDGES = 20000
+FLYVEC_CACHE_LIVE_FACTOR = 4  # widen factor when the best FlyVec neighbours are not live
 LEARNED_REL = "learned_as"
 TRIPLE_KEYS = frozenset(("s", "r", "o", "weight", "source"))
 
@@ -295,8 +334,46 @@ def _int_param(params: Params, name: str, default: int, lo: int, hi: int) -> int
     return value
 
 
-def _active(st: _State, query: str) -> list[int]:
-    return st.hasher.hash(features(query, st.params.d)).tolist()
+def _active(st: _State, query: str, inhibition: str = DEFAULT_INHIBITION, z: float = DEFAULT_Z):
+    """Active KCs of a text; ``inhibition="adaptive"`` is a QUERY-time option (stored codes: fixed)."""
+    vec = features(query, st.params.d)
+    if inhibition == "adaptive":
+        return st.hasher.hash_adaptive(vec, z).tolist()
+    return st.hasher.hash(vec).tolist()
+
+
+@dataclass(frozen=True)
+class _Opts:
+    """Opt-in recall options of the low-priority bio tools (defaults = previous behaviour)."""
+
+    inhibition: str = DEFAULT_INHIBITION
+    z: float = DEFAULT_Z
+    encoder: str = DEFAULT_ENCODER
+    legacy: bool = False
+
+
+def _flyvec_scores(st: _State, query: str, want: int) -> list[tuple[int, float]] | None:
+    """Top live nodes by cosine of FlyVec vectors, or ``None`` when no query token is known."""
+    info = st.read.flyvec_info()
+    assert info is not None
+    codes = st.read.flyvec_tokens(flyvec.tokenize(query))
+    qvec = flyvec.encode(flyvec.tokenize(query), codes, int(info["hidden"]))
+    if not qvec.any():
+        return None
+    ids, matrix = st.read.flyvec_node_vectors()
+    if not ids:
+        return []
+    sims = np.round(matrix @ qvec, 6)
+    order = np.lexsort((np.asarray(ids), -sims))
+    out: list[tuple[int, float]] = []
+    fetch = want
+    while True:
+        window = [(ids[i], float(sims[i])) for i in order[:fetch] if sims[i] > 0.0]
+        live = st.read.live_nodes(n for n, _ in window)
+        out = [(n, c) for n, c in window if n in live]
+        if len(out) >= want or fetch >= len(ids) or len(window) < fetch:
+            return out[:want]
+        fetch = min(fetch * FLYVEC_CACHE_LIVE_FACTOR, len(ids))
 
 
 def _live_nearest(st: _State, active: list[int], want: int) -> list[tuple[int, int]]:
@@ -326,11 +403,31 @@ def _live_nearest_dense(st: _State, query: str, want: int) -> list[tuple[int, fl
         fetch = min(fetch * 4, total)
 
 
-def _seed_scores(st: _State, query: str, backend: str, want: int) -> list[tuple[int, float]]:
-    """``[(node_id, score)]``: cosine similarity or FlyHash code overlap, best first."""
+def _seed_scores(
+    st: _State,
+    query: str,
+    backend: str,
+    want: int,
+    opts: _Opts = _Opts(),  # noqa: B008 - frozen dataclass, immutable default
+    notes: dict[str, Any] | None = None,
+) -> list[tuple[int, float]]:
+    """``[(node_id, score)]``: cosine similarity or FlyHash code overlap, best first.
+
+    ``encoder="flyvec"`` swaps the cosine backend's vectors for the learned FlyVec ones; when no
+    token of the query is known it falls back to the n-gram backend and says so in ``notes``.
+    """
+    if backend == "cosine" and opts.encoder == "flyvec":
+        found = _flyvec_scores(st, query, want)
+        if found is not None:
+            return found
+        if notes is not None:
+            notes["encoder_fallback"] = "ngram"
     if backend == "cosine":
         return _live_nearest_dense(st, query, want)
-    return [(n, float(o)) for n, o in _live_nearest(st, _active(st, query), want)]
+    return [
+        (n, float(o))
+        for n, o in _live_nearest(st, _active(st, query, opts.inhibition, opts.z), want)
+    ]
 
 
 def _recall(params: Params, ctx: Context) -> Payload:
@@ -364,11 +461,29 @@ def _recall(params: Params, ctx: Context) -> Payload:
     track = params.get("track_usage", False)
     if not isinstance(track, bool):
         return _error("track_usage must be a boolean")
+    inhibition = params.get("inhibition", DEFAULT_INHIBITION)
+    if inhibition not in INHIBITIONS:
+        return _error(f"unknown inhibition {inhibition!r}", valid=list(INHIBITIONS))
+    z = params.get("z", DEFAULT_Z)
+    if not _number_ok(z) or not 0 <= z <= MAX_Z:
+        return _error(f"z must be a number in [0, {MAX_Z:g}]")
+    encoder = params.get("encoder", DEFAULT_ENCODER)
+    if encoder not in ENCODERS:
+        return _error(f"unknown encoder {encoder!r}", valid=list(ENCODERS))
+    legacy = params.get("learned_legacy", False)
+    if not isinstance(legacy, bool):
+        return _error("learned_legacy must be a boolean")
+    opts = _Opts(inhibition, float(z), encoder, legacy)
     st = _get_state()
+    if encoder == "flyvec" and st.read.flyvec_info() is None:
+        return _error("no FlyVec model: run memory.flyvec_train first", next_action="flyvec_train")
+    if mode == "sdm":
+        return _recall_sdm(st, params, k, opts)
+    notes: dict[str, Any] = {}
     if mode == "seeds":
         results = []
         score_key = "similarity" if backend == "cosine" else "overlap"
-        for node_id, score in _seed_scores(st, params["query"], backend, k):
+        for node_id, score in _seed_scores(st, params["query"], backend, k, opts, notes):
             node = st.read.get_node(node_id)
             assert node is not None
             results.append({"text": node["text"], score_key: score})
@@ -378,11 +493,63 @@ def _recall(params: Params, ctx: Context) -> Payload:
             "mode": mode,
             "seeds": backend,
             "results": results,
+            **notes,
             "terse": {"results": [r["text"] for r in results]},
         }
     return _recall_ppr(
-        st, params["query"], backend, k, n_seeds, hops, max_nodes, float(lam), quorum, status, track
-    )
+        st, params["query"], backend, k, n_seeds, hops, max_nodes, float(lam), quorum, status,
+        track, opts,
+    )  # fmt: skip
+
+
+def _recall_sdm(st: _State, params: Params, k: int, opts: _Opts) -> Payload:
+    """Kanerva read: every live node code within Hamming ``radius`` of the query code, ranked."""
+    p = st.params
+    radius = params.get("radius", p.k)
+    cursor = params.get("cursor", "0")
+    if isinstance(radius, bool) or not isinstance(radius, int) or not 0 <= radius <= 4 * p.k:
+        return _error(f"radius must be an integer in [0, {4 * p.k}] (Hamming bits)")
+    if not isinstance(cursor, str) or not cursor.isdigit():
+        return _error("cursor must be the string returned by the previous page")
+    offset = int(cursor)
+    active = _active(st, params["query"], opts.inhibition, opts.z)
+    total = st.read.counts()["nodes"]
+    fetch = min(max(offset + k, 64), max(total, 1))
+    while True:
+        rows = st.read.nearest_codes(active, fetch)
+        # hamming = |query| + k_node - 2 * overlap (every stored code has exactly p.k cells)
+        inside = [(n, len(active) + p.k - 2 * o) for n, o in rows]
+        done = len(rows) < fetch or fetch >= total or (inside and inside[-1][1] > radius)
+        if done:
+            break
+        fetch = min(fetch * 4, total)
+    inside = [(n, h) for n, h in inside if h <= radius]
+    live = st.read.live_nodes(n for n, _ in inside)
+    hits = [(n, h) for n, h in inside if n in live]
+    page = hits[offset : offset + k]
+    more = offset + len(page) < len(hits)
+    results = []
+    for node_id, ham in page:
+        node = st.read.get_node(node_id)
+        assert node is not None
+        results.append(
+            {
+                "text": node["text"],
+                "score": round((radius + 1 - ham) / (radius + 1), 6),
+                "hamming": ham,
+            }
+        )
+    return {
+        "status": "OK",
+        "summary": f"{len(results)} of {len(hits)} node(s) within Hamming radius {radius}",
+        "mode": "sdm",
+        "radius": radius,
+        "in_radius": len(hits),
+        "results": results,
+        "cursor": str(offset + len(page)) if more else None,
+        "next_action": "Pass cursor to read the next page." if more else "Done.",
+        "terse": {"results": [r["text"] for r in results]},
+    }
 
 
 def _recall_ppr(
@@ -397,9 +564,12 @@ def _recall_ppr(
     quorum: int = DEFAULT_QUORUM,
     min_status: str = DEFAULT_LEARNED_STATUS,
     track_usage: bool = False,
+    opts: _Opts = _Opts(),  # noqa: B008 - frozen dataclass, immutable default
 ) -> Payload:
-    active = _active(st, query)  # FlyHash codes always drive the learned associative boost
-    seeds: dict[int, float] = dict(_seed_scores(st, query, backend, n_seeds))
+    # FlyHash codes always drive the learned associative boost (query side: optional inhibition)
+    active = _active(st, query, opts.inhibition, opts.z)
+    notes: dict[str, Any] = {}
+    seeds: dict[int, float] = dict(_seed_scores(st, query, backend, n_seeds, opts, notes))
     # Associative boost learned by ``update``, as an overlap fraction on the cosine seeds' scale:
     # s_j += lambda * BOOST_SCALE * (sum_{kc in active} assoc[kc, j]) / k.
     boost: dict[int, float] = {}
@@ -413,7 +583,7 @@ def _recall_ppr(
             key=lambda t: (-t[1], t[0]),
         )
         for node_id, b in top[:n_seeds]:
-            contrib[node_id] = lam * BOOST_SCALE * b / st.params.k
+            contrib[node_id] = lam * BOOST_SCALE * b / len(active)  # = k unless adaptive
             seeds[node_id] = seeds.get(node_id, 0.0) + contrib[node_id]
     seeds = {n: s for n, s in seeds.items() if s > 0.0}
     node_ids, edges = st.read.subgraph(sorted(seeds), hops, max_nodes)
@@ -435,7 +605,9 @@ def _recall_ppr(
     results = [{"text": texts[node_ids[i]], "score": float(scores[i])} for i in order]
     top_ids = [node_ids[i] for i in order]
     learned_ids = [n for n in top_ids if _is_learned(n, contrib, seeds)]
-    learned, details = _learned_facts(st, query, active, learned_ids, texts, quorum, min_status)
+    learned, details = _learned_facts(
+        st, query, active, learned_ids, texts, quorum, min_status, opts.legacy
+    )
     # Learned facts come first (they bridge the user's wording to the node); the total stays <= 2k.
     facts = (
         [*learned, *_facts(st, top_ids, 2 * k)][: 2 * k] if learned else _facts(st, top_ids, 2 * k)
@@ -454,6 +626,7 @@ def _recall_ppr(
         "seeds": backend,
         "results": results,
         "facts": facts,
+        **notes,
         "terse": {"results": [r["text"] for r in results]},
     }
     if by_text:
@@ -501,6 +674,10 @@ def _confirmations(st: _State, teach_queries: list[str]) -> int:
     return len({find(i) for i in range(n)})
 
 
+def _tokens(text: str) -> frozenset[str]:
+    return frozenset(w for w in re.findall(r"\w+", text.casefold()) if len(w) >= MIN_TOKEN_CHARS)
+
+
 def _specific_filter(st: _State) -> tuple[int, Callable[[Iterable[int]], dict[int, int]]]:
     """``(cut, df_of)``: the self cut over the taught nodes and a document-frequency lookup."""
     taught = st.read.teach_node_count()
@@ -523,6 +700,7 @@ def _learned_facts(
     texts: dict[int, str],
     quorum: int = DEFAULT_QUORUM,
     min_status: str = DEFAULT_LEARNED_STATUS,
+    legacy: bool = False,
 ) -> tuple[list[list[str]], dict[int, dict[str, Any]]]:
     """``([example_query, "learned_as", node_text], {node_id: {status, confirmations}})``.
 
@@ -536,6 +714,11 @@ def _learned_facts(
         return [], {}
     qvec = features(query, st.params.d)
     specific = _specific_kcs(st, active)
+    q_rare: set[str] = set()
+    if legacy:  # pre-v5 gate: a word of the query that few recent examples of other nodes use
+        background = [_tokens(q) for q in st.read.recent_examples(node_ids, BACKGROUND_EXAMPLES)]
+        cap = RARE_TOKEN_SHARE * len(background)
+        q_rare = {t for t in _tokens(query) if sum(t in b for b in background) <= cap}
     teach = st.read.teach_for(node_ids)
     out: list[list[str]] = []
     details: dict[int, dict[str, Any]] = {}
@@ -545,6 +728,10 @@ def _learned_facts(
         for r in rows:
             sim = float(features(r["query"], st.params.d) @ qvec)
             if sim < MIN_EXAMPLE_SIMILARITY:
+                continue
+            if legacy:
+                if q_rare & _tokens(r["query"]):
+                    scored.append((sim, r))
                 continue
             code = codes.get(r["query"]) or set(_active(st, r["query"]))
             own = _specific_kcs(st, sorted(code))  # what makes THIS example distinctive
@@ -679,7 +866,26 @@ def _consolidate(params: Params, ctx: Context) -> Payload:
     rate = params.get("replay_rate", DEFAULT_REPLAY_RATE)
     if not _number_ok(rate) or not 0 < rate <= 1:
         return _error("replay_rate must be a number in (0, 1]")
+    capture = params.get("capture", False)
+    if not isinstance(capture, bool):
+        return _error("capture must be a boolean")
+    window = _int_param(params, "capture_window", DEFAULT_CAPTURE_WINDOW, 1, MAX_CAPTURE_WINDOW)
+    confirmations = _int_param(
+        params, "capture_confirmations", DEFAULT_CAPTURE_CONFIRMATIONS, 1, MAX_QUORUM
+    )
+    if isinstance(window, str) or isinstance(confirmations, str):
+        return _error(window if isinstance(window, str) else str(confirmations))
     st = _get_state()
+    stats: dict[str, int] | None = None
+    confirmed: list[int] = []
+    if capture:
+        taught = {r["node_id"] for r in st.read.all_examples()}
+        confirmed = sorted(
+            n
+            for n, rows in st.read.teach_for(taught).items()
+            if _confirmations(st, [t["query"] for t in rows]) >= confirmations
+        )
+        stats = st.read.capture_stats(window, confirmed)
     try:
         backup = st.write.backup("pre-consolidate")  # lossy write: snapshot first, fail closed
     except BackupError as exc:
@@ -693,6 +899,8 @@ def _consolidate(params: Params, ctx: Context) -> Payload:
         node_factors=plan[0] if plan else None,
         default_factor=plan[1] if plan else None,
         usage_evaporation=(USAGE_EVAPORATION, USAGE_FLOOR) if usage_weighting else None,
+        capture_window=window if capture else None,
+        capture_nodes=confirmed,
     )
     out: Payload = {
         "status": "OK",
@@ -706,7 +914,49 @@ def _consolidate(params: Params, ctx: Context) -> Payload:
         out["replayed"] = len(items or [])
     if usage_weighting:
         out["usage_applied"] = plan is not None
+    if stats is not None:
+        out["captured"] = stats["captured"]
+        out["captured_tagged"] = stats["tagged"]
+        out["captured_confirmed"] = stats["confirmed"]
+        out["decayable"] = stats["assoc"] - stats["captured"]
     return out
+
+
+def _flyvec_train(params: Params, ctx: Context) -> Payload:
+    """Learn per-token Kenyon-cell codes from the KB triples and encode every node text."""
+    ints = {
+        "epochs": _int_param(params, "epochs", 5, 1, flyvec.MAX_EPOCHS),
+        "hidden": _int_param(params, "hidden", 256, 8, flyvec.MAX_HIDDEN),
+        "active": _int_param(params, "active", 16, 1, flyvec.MAX_HIDDEN),
+        "seed": _int_param(params, "seed", 1729, 0, 2**31 - 1),
+    }
+    for value in ints.values():
+        if isinstance(value, str):
+            return _error(value)
+    n = {key: int(value) for key, value in ints.items()}
+    if n["active"] > n["hidden"]:
+        return _error("active must be <= hidden")
+    st = _get_state()
+    edges = st.read.training_sentences(FLYVEC_MAX_EDGES)
+    if not edges:
+        return _error("nothing to train on: ingest triples first")
+    sentences = [flyvec.tokenize(f"{a} {r} {b}") for a, r, b in edges]
+    codes, info = flyvec.train(sentences, **n)
+    nodes = st.read.node_texts(MAX_NODES)
+    vectors = {}
+    for node_id, text in nodes:
+        vec = flyvec.encode(flyvec.tokenize(text), codes, n["hidden"])
+        if vec.any():
+            vectors[node_id] = vec.tolist()
+    info = {**info, "nodes_encoded": len(vectors), "nodes_total": len(nodes)}
+    st.write.flyvec_replace(codes, vectors, info)
+    return {
+        "status": "OK",
+        "summary": f"FlyVec: {len(codes)} token(s), {len(vectors)}/{len(nodes)} node(s) encoded",
+        "model": info,
+        "next_action": "Use memory.recall(encoder='flyvec'); nodes ingested later need a retrain.",
+        "terse": {"tokens": len(codes), "nodes_encoded": len(vectors)},
+    }
 
 
 def _restore(params: Params, ctx: Context) -> Payload:
@@ -791,6 +1041,28 @@ def register(registry: Registry) -> None:
                 "default": DEFAULT_LEARNED_STATUS,
             },
             "track_usage": {"type": "boolean", "required": False, "default": False},
+            "inhibition": {
+                "type": "string",
+                "required": False,
+                "enum": list(INHIBITIONS),
+                "default": DEFAULT_INHIBITION,
+            },
+            "z": {
+                "type": "number",
+                "required": False,
+                "min": 0,
+                "max": MAX_Z,
+                "default": DEFAULT_Z,
+            },
+            "encoder": {
+                "type": "string",
+                "required": False,
+                "enum": list(ENCODERS),
+                "default": DEFAULT_ENCODER,
+            },
+            "learned_legacy": {"type": "boolean", "required": False, "default": False},
+            "radius": {"type": "integer", "required": False, "min": 0, "max": 256},
+            "cursor": {"type": "string", "required": False},
         },
         description=(
             "Associative recall. mode='ppr' (default): seeds + learned boost -> "
@@ -809,7 +1081,10 @@ def register(registry: Registry) -> None:
             "mode='seeds': nearest nodes only (no learned boost, no learned_as). "
             "seeds= selects the seed backend, distinct from "
             "mode='seeds': seeds='cosine' (default): exact cosine over the "
-            "dense vectors; seeds='flyhash' (experimental): FlyHash code overlap."
+            "dense vectors; seeds='flyhash' (experimental): FlyHash code overlap. "
+            "Opt-in: inhibition='adaptive' (query-time APL inhibition, z), mode='sdm'+radius "
+            "(Kanerva Hamming read, cursor pages), encoder='flyvec' (after flyvec_train), "
+            "learned_legacy=true (pre-v5 learned_as gate)."
         ),
         example={"query": "paris", "k": 5, "mode": "ppr"},
     )
@@ -866,6 +1141,19 @@ def register(registry: Registry) -> None:
                 "default": DEFAULT_REPLAY_RATE,
             },
             "usage_weighting": {"type": "boolean", "required": False, "default": False},
+            "capture": {"type": "boolean", "required": False, "default": False},
+            "capture_window": {
+                **int_opt,
+                "min": 1,
+                "max": MAX_CAPTURE_WINDOW,
+                "default": DEFAULT_CAPTURE_WINDOW,
+            },
+            "capture_confirmations": {
+                **int_opt,
+                "min": 1,
+                "max": MAX_QUORUM,
+                "default": DEFAULT_CAPTURE_CONFIRMATIONS,
+            },
         },
         description=(
             "Decay learned associations (assoc *= decay) and prune |w| < prune_below; teach "
@@ -873,9 +1161,27 @@ def register(registry: Registry) -> None:
             "sources only: examples follow assoc, not sources. replay=true first re-applies the "
             "stored teach examples at replay_rate (sleep replay) so taught associations survive "
             "decay; usage_weighting=true makes nodes used by recall(track_usage=true) decay less "
-            "and unused ones more (usage counters evaporate; source facts are never touched)."
+            "and unused ones more (usage counters evaporate; source facts are never touched). "
+            "capture=true: tagged-recently (capture_window updates) or confirmed associations "
+            "are exempt from decay/prune; reports captured counts."
         ),
         example={"decay": 0.9, "prune_below": 0.001, "replay": True},
+    )
+    registry.register(
+        "memory",
+        "flyvec_train",
+        _flyvec_train,
+        params_schema={
+            "epochs": {**int_opt, "min": 1, "max": flyvec.MAX_EPOCHS, "default": 5},
+            "hidden": {**int_opt, "min": 8, "max": flyvec.MAX_HIDDEN, "default": 256},
+            "active": {**int_opt, "min": 1, "max": flyvec.MAX_HIDDEN, "default": 16},
+            "seed": {**int_opt, "min": 0, "max": 2**31 - 1, "default": 1729},
+        },
+        description=(
+            "FlyVec-lite: learn per-token codes from the KB triples (bounded, seeded); enables "
+            "recall(encoder='flyvec'). No generalisation to unseen words; retrain after ingest."
+        ),
+        example={"epochs": 5},
     )
     registry.register(
         "memory",

@@ -39,6 +39,23 @@ class FlyHash:
         winners = np.lexsort((self._order, -scores))[: self.k]
         return np.sort(winners)
 
+    def hash_adaptive(self, x: np.ndarray, z: float = 1.0) -> np.ndarray:
+        """Query-time APL-style inhibition (Lin et al. 2014): keep the cells above ``mean + z*std``.
+
+        Global feedback inhibition adapts the number of winners to how peaked the response is:
+        the count is clamped to ``[k // 2, 2k]`` (never fewer than 1, never more than ``m``).
+        Never used to store codes (stored codes are exactly ``k`` cells, see ``hash``).
+        """
+        v = np.asarray(x, dtype=np.float64)
+        if v.shape != (self.d,):
+            raise ValueError(f"expected shape ({self.d},), got {v.shape}")
+        if not np.all(np.isfinite(v)):
+            raise ValueError("input contains non-finite values")
+        scores = v[self._projection].sum(axis=1)
+        above = int(np.count_nonzero(scores > scores.mean() + z * scores.std()))
+        n = min(max(above, self.k // 2, 1), 2 * self.k, self.m)
+        return np.sort(np.lexsort((self._order, -scores))[:n])
+
     def to_bits(self, active: np.ndarray) -> bytes:
         """``m/8`` bytes; bit ``i`` of byte ``j`` is cell ``8*j + i`` (matches the substrate)."""
         bits = np.zeros(self.m, dtype=np.uint8)

@@ -115,7 +115,7 @@ def test_ingest_embedding_key_not_a_node(call):
 
 def test_recall_errors(call):
     bad = call("memory", "recall", params={"query": "x", "mode": "bogus"})
-    assert bad["status"] == "ERROR" and bad["valid"] == ["ppr", "seeds"]
+    assert bad["status"] == "ERROR" and bad["valid"] == ["ppr", "seeds", "sdm"]
     assert call("memory", "recall", params={"query": ""})["status"] == "ERROR"
     assert call("memory", "recall", params={"query": "x", "k": 0})["status"] == "ERROR"
     assert call("memory", "recall", params={"query": "x", "k": True})["status"] == "ERROR"

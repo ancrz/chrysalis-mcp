@@ -20,6 +20,11 @@ that fire for each node's teach queries, so per-KC document frequency over DISTI
 count and not a window) and ``edge_usage`` (bounded pheromone counters of recalled edges). The
 v4 -> v5 migration only adds tables; ``teach_queries``/``node_kcs`` of associations taught under
 v4 are backfilled from ``examples`` by the memory domain on open (the hasher lives there).
+v6 = low-priority bio tools, three additive tables and no column change: ``assoc_tags`` (synaptic
+tag of the associations each ``update`` touched: a logical update counter, see ``tag_clock`` in
+``meta``), ``flyvec_tokens`` (per-token Kenyon-cell projection learned by ``flyvec_train``) and
+``flyvec_nodes`` (the FlyVec vector of each node text). The v5 -> v6 migration only adds tables:
+nothing to backfill (no tag = never tagged, no FlyVec model = ``encoder="flyvec"`` unavailable).
 """
 
 import os
@@ -37,7 +42,7 @@ try:  # fail-soft: the substrate works (slower) without the vector extension
 except ImportError, OSError:  # pragma: no cover - depends on host
     _sqlite_vec = None
 
-SUBSTRATE_CONTRACT = "v5"
+SUBSTRATE_CONTRACT = "v6"
 MAX_EXAMPLES_PER_NODE = 3  # most recent teach queries kept per node (quoted by learned_as)
 MAX_TEACH_QUERIES = 16  # most recent DISTINCT teach queries kept per node (self profile, quorum)
 ENV_DB_PATH = "CHRYSALIS_DB"
@@ -121,6 +126,23 @@ CREATE TABLE IF NOT EXISTS edge_usage (
 );
 """
 
+_SCHEMA_V6 = """
+CREATE TABLE IF NOT EXISTS assoc_tags (
+    kc INTEGER NOT NULL,
+    node_id INTEGER NOT NULL REFERENCES nodes(id),
+    tag INTEGER NOT NULL,
+    PRIMARY KEY (kc, node_id)
+) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS flyvec_tokens (
+    token TEXT PRIMARY KEY,
+    kcs BLOB NOT NULL
+) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS flyvec_nodes (
+    node_id INTEGER PRIMARY KEY REFERENCES nodes(id),
+    vec BLOB NOT NULL
+);
+"""
+
 
 @dataclass(frozen=True)
 class FlyHashParams:
@@ -160,6 +182,9 @@ TABLES = (
     "teach_queries",
     "node_kcs",
     "edge_usage",
+    "assoc_tags",
+    "flyvec_tokens",
+    "flyvec_nodes",
 )
 
 
@@ -269,7 +294,7 @@ class Database:
 
     def _migrate(self, requested: FlyHashParams | None) -> FlyHashParams:
         with self.transaction() as conn:
-            for statement in (_SCHEMA_V1 + _SCHEMA_V3 + _SCHEMA_V4 + _SCHEMA_V5).split(";"):
+            for statement in (_SCHEMA_V1 + _SCHEMA_V3 + _SCHEMA_V4 + _SCHEMA_V5 + _SCHEMA_V6).split(";"):
                 if statement.strip():
                     conn.execute(statement)
             row = conn.execute("SELECT value FROM meta WHERE key = 'contract'").fetchone()

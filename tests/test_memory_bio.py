@@ -77,7 +77,7 @@ def _make_v4(path, with_example: bool = True) -> None:
 
 def test_fresh_database_is_v5_with_empty_bio_tables(tmp_path):
     r, _ = open_substrate(tmp_path / "fresh.db")
-    assert r.contract() == "v5" == store_mod.SUBSTRATE_CONTRACT
+    assert r.contract() == "v6" == store_mod.SUBSTRATE_CONTRACT
     counts = r.counts()
     assert counts["teach_queries"] == counts["node_kcs"] == counts["edge_usage"] == 0
     assert {"teach_queries", "node_kcs", "edge_usage"} <= set(store_mod.TABLES)
@@ -87,7 +87,7 @@ def test_v4_database_is_upgraded_in_place_and_idempotently(tmp_path):
     path = tmp_path / "v4.db"
     _make_v4(path)
     r, _ = open_substrate(path)  # substrate layer: only adds tables, nothing is backfilled
-    assert r.contract() == "v5"
+    assert r.contract() == "v6"
     assert r.counts()["nodes"] == 2 and r.counts()["assoc"] == 1 and r.counts()["examples"] == 2
     assert r.counts()["teach_queries"] == 0 and r.counts()["log"] == 0
     first = sqlite3.connect(path).execute("SELECT type, name FROM sqlite_master ORDER BY 1,2")

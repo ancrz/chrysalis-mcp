@@ -146,6 +146,7 @@ async def test_stdio_memory_batch_ingest_recall(tmp_path):
             "forget",
             "consolidate",
             "restore",
+            "flyvec_train",
         }
 
 

@@ -84,6 +84,10 @@ def _call(registry, cache, action, params=None, verbosity="summary"):
     return json.loads(out)
 
 
+# Was 8000 bytes before the v6 low-priority bio tools (1 action + 9 params of schema surface).
+BRIEF_BUDGET = 8500
+
+
 def test_hint_reaches_handshake_schema_discover_advise_and_budgets_hold():
     registry, cache = build_registry(), SessionCache()
     hs = _call(registry, cache, "handshake", {"model": "g", "params_b": 4, "thinking": False})
@@ -93,7 +97,7 @@ def test_hint_reaches_handshake_schema_discover_advise_and_budgets_hold():
             out = _call(registry, cache, action, verbosity=verbosity)
             assert out["hints"], (action, verbosity)
     for action in ("schema", "discover"):
-        assert len(json.dumps(_call(registry, cache, action, verbosity="brief")).encode()) <= 8000
+        assert len(json.dumps(_call(registry, cache, action, verbosity="brief")).encode()) <= BRIEF_BUDGET
     assert len(json.dumps(_call(registry, cache, "schema", verbosity="terse")).encode()) <= 1500
     assert len(json.dumps(_call(registry, cache, "discover", verbosity="terse")).encode()) <= 1500
     adv = _call(registry, cache, "advise", {"domain": "reason", "action": "solve",
@@ -206,7 +210,7 @@ def test_handshake_prompt_hint_for_small_thinking_off_and_budgets():
                     verbosity=verbosity)  # fmt: skip
         assert "prompt_hint" not in out and out["hints"]  # clipped views never carry a cut hint
     assert len(json.dumps(_call(registry, cache, "handshake", {"model": "g", "params_b": 4},
-                                verbosity="brief")).encode()) <= 8000  # fmt: skip
+                                verbosity="brief")).encode()) <= BRIEF_BUDGET  # fmt: skip
     assert len(json.dumps(_call(registry, cache, "handshake", {"model": "g", "params_b": 4},
                                 verbosity="terse")).encode()) <= 1500  # fmt: skip
 
