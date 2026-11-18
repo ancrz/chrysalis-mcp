@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from . import backup as _backup
-from .store import MAX_EXAMPLES_PER_NODE, Database, vec_to_blob
+from .store import MAX_EXAMPLES_PER_NODE, MAX_TEACH_QUERIES, Database, vec_to_blob
 
 
 @dataclass(frozen=True)
@@ -48,7 +48,18 @@ class SubstrateWrite(Protocol):
     def reinforce(
         self, kc_ids: Iterable[int], node_id: int, delta: float, example: str | None = None
     ) -> int: ...
-    def decay_assoc(self, decay: float, prune_below: float) -> tuple[int, int]: ...
+    def decay_assoc(
+        self,
+        decay: float,
+        prune_below: float,
+        *,
+        replay: Sequence[tuple[Sequence[int], int, float]] | None = None,
+        node_factors: Mapping[int, float] | None = None,
+        default_factor: float | None = None,
+        usage_evaporation: tuple[float, float] | None = None,
+    ) -> tuple[int, int]: ...
+    def backfill_teach(self, rows: Sequence[tuple[int, str, Sequence[int], int]]) -> int: ...
+    def bump_usage(self, edge_ids: Iterable[int], cap: float) -> int: ...
     def backup(self, reason: str) -> dict[str, Any]: ...
     def list_backups(self) -> list[dict[str, Any]]: ...
     def restore(self, slot: int) -> dict[str, Any]: ...
@@ -101,24 +112,70 @@ def _upsert_node(conn: sqlite3.Connection, text: str) -> int:
     return conn.execute("SELECT id FROM nodes WHERE text = ?", (text,)).fetchone()[0]
 
 
+def _next_ts(conn: sqlite3.Connection) -> int:
+    """Logical clock shared by ``examples`` and ``teach_queries`` (strictly increasing)."""
+    return conn.execute(
+        "SELECT MAX(COALESCE((SELECT MAX(ts) FROM examples), 0), "
+        "COALESCE((SELECT MAX(ts) FROM teach_queries), 0)) + 1"
+    ).fetchone()[0]
+
+
+def _rebuild_node_kcs(conn: sqlite3.Connection, node_id: int) -> None:
+    """``node_kcs`` of one node = union of the codes of its ``teach_queries`` (derived table)."""
+    conn.execute("DELETE FROM node_kcs WHERE node_id = ?", (node_id,))
+    kcs: set[int] = set()
+    for row in conn.execute("SELECT active FROM teach_queries WHERE node_id = ?", (node_id,)):
+        kcs.update(struct.unpack(f"<{len(row[0]) // 4}I", row[0]))
+    conn.executemany(
+        "INSERT INTO node_kcs (kc, node_id) VALUES (?, ?)", ((kc, node_id) for kc in sorted(kcs))
+    )
+
+
+def _update_teach(
+    conn: sqlite3.Connection,
+    node_id: int,
+    kc_ids: Sequence[int],
+    query: str,
+    ts: int,
+    keep: bool,
+) -> None:
+    """Maintain the bounded ``teach_queries`` of a node (and its derived ``node_kcs`` rows)."""
+    if keep:
+        blob = struct.pack(f"<{len(kc_ids)}I", *kc_ids)
+        conn.execute(
+            "INSERT INTO teach_queries (node_id, query, active, ts) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(node_id, query) DO UPDATE SET active = excluded.active, ts = excluded.ts",
+            (node_id, query, blob, ts),
+        )
+        conn.execute(
+            "DELETE FROM teach_queries WHERE node_id = ? AND query NOT IN "
+            "(SELECT query FROM teach_queries WHERE node_id = ? ORDER BY ts DESC LIMIT ?)",
+            (node_id, node_id, MAX_TEACH_QUERIES),
+        )
+    else:
+        conn.execute("DELETE FROM teach_queries WHERE node_id = ? AND query = ?", (node_id, query))
+    _rebuild_node_kcs(conn, node_id)
+
+
 def _update_example(
     conn: sqlite3.Connection, node_id: int, kc_ids: Sequence[int], delta: float, query: str
 ) -> None:
-    """Maintain the bounded ``examples`` rows of one node (caller holds the transaction)."""
+    """Maintain the bounded ``examples`` / ``teach_queries`` of one node (caller holds the txn)."""
+    ts = _next_ts(conn)
     if delta > 0:
         # ts is a logical clock (strictly increasing), so "most recent" has no same-second ties.
         conn.execute(
-            "INSERT INTO examples (node_id, query, weight, ts) "
-            "VALUES (?, ?, ?, (SELECT COALESCE(MAX(ts), 0) + 1 FROM examples)) "
+            "INSERT INTO examples (node_id, query, weight, ts) VALUES (?, ?, ?, ?) "
             "ON CONFLICT(node_id, query) DO UPDATE SET weight = weight + excluded.weight, "
             "ts = excluded.ts",
-            (node_id, query, delta),
+            (node_id, query, delta, ts),
         )
         conn.execute(
             "DELETE FROM examples WHERE node_id = ? AND query NOT IN "
             "(SELECT query FROM examples WHERE node_id = ? ORDER BY ts DESC LIMIT ?)",
             (node_id, node_id, MAX_EXAMPLES_PER_NODE),
         )
+        _update_teach(conn, node_id, kc_ids, query, ts, keep=True)
     elif delta < 0:
         mass = conn.execute(
             "SELECT COALESCE(SUM(weight), 0.0) FROM assoc "
@@ -127,6 +184,7 @@ def _update_example(
         ).fetchone()[0]
         if mass <= 0.0:
             conn.execute("DELETE FROM examples WHERE node_id = ? AND query = ?", (node_id, query))
+            _update_teach(conn, node_id, kc_ids, query, ts, keep=False)
 
 
 class SqliteWrite:
@@ -332,24 +390,130 @@ class SqliteWrite:
             _log(conn, "reinforce", {"node_id": node_id, "n_kcs": len(ids), "delta": delta})
         return len(ids)
 
-    def decay_assoc(self, decay: float, prune_below: float) -> tuple[int, int]:
-        """``assoc.weight *= decay`` then delete ``|weight| < prune_below``: ``(decayed, pruned)``.
+    def decay_assoc(
+        self,
+        decay: float,
+        prune_below: float,
+        *,
+        replay: Sequence[tuple[Sequence[int], int, float]] | None = None,
+        node_factors: Mapping[int, float] | None = None,
+        default_factor: float | None = None,
+        usage_evaporation: tuple[float, float] | None = None,
+    ) -> tuple[int, int]:
+        """Replay, decay and prune ``assoc`` in one transaction: ``(decayed, pruned)``.
 
-        The log is append-only and is never pruned.
+        1. ``replay`` ``[(kc_ids, node_id, delta)]`` (sleep replay): ``assoc[kc, node] += delta``
+           for associations that are still alive (summed weight > 0); no example is touched.
+        2. decay: ``weight *= decay``; with ``node_factors`` (usage weighting) each listed node
+           uses its own factor and every other node ``default_factor``.
+        3. prune ``|weight| < prune_below``; examples/teach queries of nodes left without any
+           association are dropped (they follow assoc).
+        ``usage_evaporation = (factor, floor)`` also evaporates ``edge_usage`` (``usage *= factor``,
+        rows below ``floor`` deleted); source facts (edges) are never modified. The log is
+        append-only and is never pruned.
         """
+        replayed = 0
         with self._db.transaction() as conn:
-            decayed = conn.execute("UPDATE assoc SET weight = weight * ?", (decay,)).rowcount
+            for kc_ids, node_id, delta in replay or ():
+                kcs = sorted(set(kc_ids))
+                mass = conn.execute(
+                    "SELECT COALESCE(SUM(weight), 0.0) FROM assoc "
+                    "WHERE node_id = ? AND kc IN (SELECT value FROM json_each(?))",
+                    (node_id, json.dumps(kcs)),
+                ).fetchone()[0]
+                if mass <= 0.0:
+                    continue
+                for kc in kcs:
+                    conn.execute(
+                        "INSERT INTO assoc (kc, node_id, weight) VALUES (?, ?, ?) "
+                        "ON CONFLICT(kc, node_id) DO UPDATE SET weight = weight + excluded.weight",
+                        (kc, node_id, delta),
+                    )
+                replayed += 1
+            if node_factors is None:
+                decayed = conn.execute("UPDATE assoc SET weight = weight * ?", (decay,)).rowcount
+            else:
+                decayed = 0
+                for node_id, factor in node_factors.items():
+                    decayed += conn.execute(
+                        "UPDATE assoc SET weight = weight * ? WHERE node_id = ?", (factor, node_id)
+                    ).rowcount
+                rest = decay if default_factor is None else default_factor
+                decayed += conn.execute(
+                    "UPDATE assoc SET weight = weight * ? WHERE node_id NOT IN "
+                    "(SELECT value FROM json_each(?))",
+                    (rest, json.dumps(list(node_factors))),
+                ).rowcount
             pruned = conn.execute(
                 "DELETE FROM assoc WHERE abs(weight) < ?", (prune_below,)
             ).rowcount
             # Examples follow assoc: a node whose assoc is fully gone keeps no examples.
             conn.execute("DELETE FROM examples WHERE node_id NOT IN (SELECT node_id FROM assoc)")
+            conn.execute(
+                "DELETE FROM teach_queries WHERE node_id NOT IN (SELECT node_id FROM assoc)"
+            )
+            conn.execute("DELETE FROM node_kcs WHERE node_id NOT IN (SELECT node_id FROM assoc)")
+            usage_pruned = 0
+            if usage_evaporation is not None:
+                factor, floor = usage_evaporation
+                conn.execute("UPDATE edge_usage SET usage = usage * ?", (factor,))
+                usage_pruned = conn.execute(
+                    "DELETE FROM edge_usage WHERE usage < ?", (floor,)
+                ).rowcount
             _log(
                 conn,
                 "decay_assoc",
-                {"decay": decay, "prune_below": prune_below, "decayed": decayed, "pruned": pruned},
+                {
+                    "decay": decay,
+                    "prune_below": prune_below,
+                    "decayed": decayed,
+                    "pruned": pruned,
+                    "replayed": replayed,
+                    "usage_weighted": node_factors is not None,
+                    "usage_pruned": usage_pruned,
+                },
             )
         return decayed, pruned
+
+    def backfill_teach(self, rows: Sequence[tuple[int, str, Sequence[int], int]]) -> int:
+        """v4 -> v5 backfill: ``(node_id, query, active, ts)`` teach queries of old examples."""
+        nodes: set[int] = set()
+        with self._db.transaction() as conn:
+            for node_id, query, active, ts in rows:
+                ids = sorted(set(active))
+                conn.execute(
+                    "INSERT OR IGNORE INTO teach_queries (node_id, query, active, ts) "
+                    "VALUES (?, ?, ?, ?)",
+                    (node_id, query, struct.pack(f"<{len(ids)}I", *ids), ts),
+                )
+                nodes.add(node_id)
+            for node_id in sorted(nodes):
+                _rebuild_node_kcs(conn, node_id)
+            _log(conn, "backfill_teach", {"n": len(rows)})
+        return len(rows)
+
+    def bump_usage(self, edge_ids: Iterable[int], cap: float) -> int:
+        """``edge_usage += 1`` (bounded by ``cap``) for the VALID edges among ``edge_ids``."""
+        ids = sorted(set(edge_ids))
+        if not ids:
+            return 0
+        with self._db.transaction() as conn:
+            valid = [
+                r[0]
+                for r in conn.execute(
+                    "SELECT id FROM edges WHERE valid = 1 "
+                    "AND id IN (SELECT value FROM json_each(?))",
+                    (json.dumps(ids),),
+                )
+            ]
+            for edge_id in valid:
+                conn.execute(
+                    "INSERT INTO edge_usage (edge_id, usage) VALUES (?, 1.0) "
+                    "ON CONFLICT(edge_id) DO UPDATE SET usage = MIN(?, usage + 1.0)",
+                    (edge_id, cap),
+                )
+            _log(conn, "bump_usage", {"n": len(valid)})
+        return len(valid)
 
     def backup(self, reason: str) -> dict[str, Any]:
         """Verified rotating snapshot (see ``substrate.backup``); raises ``BackupError``."""

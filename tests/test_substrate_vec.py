@@ -113,7 +113,7 @@ def test_migration_v1_to_v2_preserves_data_and_is_idempotent(tmp_path):
     db = tmp_path / "v1.db"
     _make_v1(db)
     r, _ = open_substrate(db, P)
-    assert r.contract() == "v4"
+    assert r.contract() == "v5"
     assert r.counts()["nodes"] == 3 and r.counts()["edges"] == 1 and r.counts()["kc_codes"] == 3
     assert r.flyhash_params() == P
     assert r.get_node("old1")["id"] == 2
@@ -125,7 +125,7 @@ def test_migration_v1_to_v2_preserves_data_and_is_idempotent(tmp_path):
         sqlite3.connect(db).execute("SELECT type, name FROM sqlite_master ORDER BY 1,2").fetchall()
     )
     r2, _ = open_substrate(db)  # params=None -> stored ones
-    assert r2.contract() == "v4" and r2.flyhash_params() == P
+    assert r2.contract() == "v5" and r2.flyhash_params() == P
     assert (
         sqlite3.connect(db).execute("SELECT type, name FROM sqlite_master ORDER BY 1,2").fetchall()
         == first

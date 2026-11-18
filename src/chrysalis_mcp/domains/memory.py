@@ -13,13 +13,34 @@ learned alias is explainable to the model. Examples follow ``assoc`` (consolidat
 The learned boost is normalised to the overlap fraction ``BOOST_SCALE * sum(assoc) / k`` so
 ``lambda`` acts on a [0, 1] scale comparable to the cosine seeds: unrelated ``update`` calls cannot
 swamp the cosine seeds of other queries (measured: plain-KB recall@5 stays 1.0 after 300 updates).
+
+Bio layer (substrate v5; each mechanism has a biological analogue and an explicit trade-off):
+
+* Negative selection (thymus). ``learned_as`` used to ask "does the query share a RARE word with
+  the example?" over a window of the 64 latest examples: order dependent and fooled by common
+  words. Now the *self* profile is a count: per Kenyon cell (KC), the number of DISTINCT nodes whose
+  teach queries activate it (``node_kcs``). KCs that fire for ``SELF_FRACTION`` of the taught nodes
+  (at least ``SELF_MIN_NODES``) are non-specific "self" (question templates, filler words) and are
+  ignored when matching a query to an example; at least ``MIN_SPECIFIC_KCS`` shared non-self KCs
+  are required. The decision depends on the SET of taught examples, never on their order.
+* Quorum sensing (bacteria). Each node counts its DISTINCT teach queries (near duplicates, cosine
+  >= ``TEACH_DEDUPE_SIM``, count once). A ``learned_as`` explanation is ``confirmed`` at
+  ``quorum`` (default 2) or more, else ``provisional``. The ranking boost is never gated by it;
+  ``learned_min_status="confirmed"`` additionally hides the provisional explanations.
+* Replay (hippocampal sleep). ``consolidate(replay=True)`` re-applies the stored examples at
+  ``replay_rate`` before decaying, so what the user taught survives pruning better than residue.
+* Pheromone / Physarum. ``recall(track_usage=True)`` counts (bounded) the edges around the returned
+  nodes; ``consolidate(usage_weighting=True)`` lets used nodes decay less and unused ones more,
+  and evaporates the counters. Only learned ``assoc`` and the usage counters change: source
+  facts (edges) are never deleted or reweighted.
+
 Depends on ``substrate``, ``algorithms`` and ``core`` only.
 """
 
 import math
 import os
-import re
 import threading
+from collections.abc import Callable, Iterable
 from typing import Any
 
 import numpy as np
@@ -62,13 +83,36 @@ MAX_LEARNED_EXAMPLES = 2  # teach examples explained per learned node (most simi
 # features): the learned boost is a coarse KC overlap and can touch unrelated wording (measured:
 # an unrelated query scores 0.19 against a taught one, a paraphrase 0.4-0.9).
 MIN_EXAMPLE_SIMILARITY = 0.3
-# ...and it must share a RARE word with the query: shared question templates ("what is the ... of")
-# give unrelated pairs a similar cosine, but a taught alias is a word no other node's examples use.
-# Rare = present in at most RARE_TOKEN_SHARE of the BACKGROUND_EXAMPLES most recent examples taught
-# to other nodes (words of < MIN_TOKEN_CHARS characters are ignored).
-RARE_TOKEN_SHARE = 0.1
-MIN_TOKEN_CHARS = 3
-BACKGROUND_EXAMPLES = 64
+# ...and it must share SPECIFIC cells with the query (negative selection, see module docstring).
+# A KC is "self" when it fires for >= max(SELF_MIN_NODES, ceil(SELF_FRACTION * taught nodes))
+# distinct nodes. Defaults come from a sweep on seeds disjoint from the bench seeds (report).
+SELF_FRACTION = 0.02
+SELF_MIN_NODES = 3
+MIN_SPECIFIC_KCS = 4
+# ...and cover this share of the example's own specific cells: "Amber Well" shares the word Amber
+# with the taught "Amber Hive" but not its distinctive PAIR, so it covers only part of it.
+MIN_COVERAGE = 0.2
+# Quorum sensing: a node's teach queries closer than this (cosine of the n-gram features) are the
+# same confirmation (typo, casing); a paraphrase (measured 0.4-0.8) is a new one.
+TEACH_DEDUPE_SIM = 0.85
+DEFAULT_QUORUM = 2
+MAX_QUORUM = 16
+LEARNED_STATUSES = ("provisional", "confirmed")  # ascending strength
+DEFAULT_LEARNED_STATUS = "provisional"
+# Replay: assoc[kc, node] += rate * ETA * min(example weight, REPLAY_WEIGHT_CAP) per stored example.
+DEFAULT_REPLAY_RATE = 0.25
+REPLAY_WEIGHT_CAP = 3.0
+# Usage (pheromone): +1 per recall on the edges around the returned nodes, capped; a node's usage is
+# the sum over its edges, saturating at USAGE_SATURATION. Per node the consolidate factor is
+# interpolated between decay ** UNUSED_DECAY_EXPONENT (never used) and
+# 1 - (1 - decay) * (1 - USAGE_PROTECT) (saturated): protection only, never growth above 1.
+USAGE_CAP = 10.0
+USAGE_SATURATION = 4.0
+USAGE_PROTECT = 0.75
+UNUSED_DECAY_EXPONENT = 1.5
+USAGE_EVAPORATION = 0.9
+USAGE_FLOOR = 0.05
+MAX_USAGE_EDGES = 256
 LEARNED_REL = "learned_as"
 TRIPLE_KEYS = frozenset(("s", "r", "o", "weight", "source"))
 
@@ -80,6 +124,7 @@ class _State:
         self.params = p
         self.hasher = FlyHash(p.d, p.m, p.k, p.c, p.seed)
         self._backfill_dense()
+        self._backfill_teach()
 
     def _backfill_dense(self) -> None:
         """v2 -> v3 data-preserving migration: dense vectors for nodes that predate them.
@@ -91,6 +136,21 @@ class _State:
         while batch := self.read.nodes_without_dense(BACKFILL_BATCH):
             self.write.backfill_dense(
                 {row["id"]: features(row["text"], self.params.d).tolist() for row in batch}
+            )
+
+    def _backfill_teach(self) -> None:
+        """v4 -> v5 data-preserving migration: teach queries (with codes) of the old examples."""
+        while batch := self.read.examples_without_teach(BACKFILL_BATCH):
+            self.write.backfill_teach(
+                [
+                    (
+                        row["node_id"],
+                        row["query"],
+                        self.hasher.hash(features(row["query"], self.params.d)).tolist(),
+                        row["ts"],
+                    )
+                    for row in batch
+                ]
             )
 
 
@@ -295,6 +355,15 @@ def _recall(params: Params, ctx: Context) -> Payload:
     lam = params.get("lambda", DEFAULT_LAMBDA)
     if not _number_ok(lam) or not 0 <= lam <= MAX_LAMBDA:
         return _error(f"lambda must be a number in [0, {MAX_LAMBDA:g}]")
+    quorum = _int_param(params, "quorum", DEFAULT_QUORUM, 1, MAX_QUORUM)
+    if isinstance(quorum, str):
+        return _error(quorum)
+    status = params.get("learned_min_status", DEFAULT_LEARNED_STATUS)
+    if status not in LEARNED_STATUSES:
+        return _error(f"unknown learned_min_status {status!r}", valid=list(LEARNED_STATUSES))
+    track = params.get("track_usage", False)
+    if not isinstance(track, bool):
+        return _error("track_usage must be a boolean")
     st = _get_state()
     if mode == "seeds":
         results = []
@@ -311,7 +380,9 @@ def _recall(params: Params, ctx: Context) -> Payload:
             "results": results,
             "terse": {"results": [r["text"] for r in results]},
         }
-    return _recall_ppr(st, params["query"], backend, k, n_seeds, hops, max_nodes, float(lam))
+    return _recall_ppr(
+        st, params["query"], backend, k, n_seeds, hops, max_nodes, float(lam), quorum, status, track
+    )
 
 
 def _recall_ppr(
@@ -323,6 +394,9 @@ def _recall_ppr(
     hops: int,
     max_nodes: int,
     lam: float,
+    quorum: int = DEFAULT_QUORUM,
+    min_status: str = DEFAULT_LEARNED_STATUS,
+    track_usage: bool = False,
 ) -> Payload:
     active = _active(st, query)  # FlyHash codes always drive the learned associative boost
     seeds: dict[int, float] = dict(_seed_scores(st, query, backend, n_seeds))
@@ -361,16 +435,19 @@ def _recall_ppr(
     results = [{"text": texts[node_ids[i]], "score": float(scores[i])} for i in order]
     top_ids = [node_ids[i] for i in order]
     learned_ids = [n for n in top_ids if _is_learned(n, contrib, seeds)]
-    learned = _learned_facts(st, query, learned_ids, texts)
+    learned, details = _learned_facts(st, query, active, learned_ids, texts, quorum, min_status)
     # Learned facts come first (they bridge the user's wording to the node); the total stays <= 2k.
     facts = (
         [*learned, *_facts(st, top_ids, 2 * k)][: 2 * k] if learned else _facts(st, top_ids, 2 * k)
     )
-    flagged = {texts[n] for n in learned_ids if any(f[2] == texts[n] for f in learned)}
+    by_text = {texts[n]: d for n, d in details.items()}
     for r in results:
-        if r["text"] in flagged:
+        if r["text"] in by_text:
             r["learned"] = True
-    return {
+            r["learned_status"] = by_text[r["text"]]["status"]
+    if track_usage:
+        _track_usage(st, top_ids)
+    payload: Payload = {
         "status": "OK",
         "summary": f"{len(results)} node(s), {len(facts)} fact(s) for mode=ppr",
         "mode": "ppr",
@@ -379,10 +456,18 @@ def _recall_ppr(
         "facts": facts,
         "terse": {"results": [r["text"] for r in results]},
     }
+    if by_text:
+        payload["learned"] = [{"node": t, **d} for t, d in by_text.items()]
+    return payload
 
 
-def _tokens(text: str) -> frozenset[str]:
-    return frozenset(w for w in re.findall(r"\w+", text.casefold()) if len(w) >= MIN_TOKEN_CHARS)
+def _track_usage(st: _State, top_ids: list[int]) -> None:
+    """Pheromone: +1 (bounded) on the valid edges touching the returned nodes."""
+    edge_ids: dict[int, None] = {}
+    for node_id in top_ids:
+        for edge in st.read.neighbors(node_id, valid_only=True):
+            edge_ids.setdefault(edge["id"])
+    st.write.bump_usage(list(edge_ids)[:MAX_USAGE_EDGES], USAGE_CAP)
 
 
 def _is_learned(node_id: int, contrib: dict[int, float], seeds: dict[int, float]) -> bool:
@@ -391,34 +476,93 @@ def _is_learned(node_id: int, contrib: dict[int, float], seeds: dict[int, float]
     return c > 0.0 and c >= LEARNED_SHARE * seeds.get(node_id, 0.0)
 
 
-def _learned_facts(
-    st: _State, query: str, node_ids: list[int], texts: dict[int, str]
-) -> list[list[str]]:
-    """``[example_query, "learned_as", node_text]`` for the stored teach examples of learned nodes.
+def _confirmations(st: _State, teach_queries: list[str]) -> int:
+    """Distinct teach queries of a node: connected components under ``TEACH_DEDUPE_SIM``.
 
-    Per node the ``MAX_LEARNED_EXAMPLES`` examples most similar to ``query`` (cosine of the n-gram
-    features, ties by recency) that reach ``MIN_EXAMPLE_SIMILARITY`` and share a rare word with the
-    query are kept; nodes without qualifying examples emit nothing.
+    Components (not a greedy scan) so the count does not depend on the order of the queries.
+    """
+    n = len(teach_queries)
+    if n <= 1:
+        return n
+    vecs = np.vstack([features(q, st.params.d) for q in teach_queries])
+    close = (vecs @ vecs.T) >= TEACH_DEDUPE_SIM
+    parent = list(range(n))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            if close[i, j]:
+                parent[find(i)] = find(j)
+    return len({find(i) for i in range(n)})
+
+
+def _specific_filter(st: _State) -> tuple[int, Callable[[Iterable[int]], dict[int, int]]]:
+    """``(cut, df_of)``: the self cut over the taught nodes and a document-frequency lookup."""
+    taught = st.read.teach_node_count()
+    cut = max(SELF_MIN_NODES, math.ceil(SELF_FRACTION * taught))
+    return cut, st.read.kc_node_counts
+
+
+def _specific_kcs(st: _State, active: list[int]) -> set[int]:
+    """Cells of ``active`` that are not "self" (fire for fewer than the cut of distinct nodes)."""
+    cut, df_of = _specific_filter(st)
+    df = df_of(active)
+    return {kc for kc in active if df.get(kc, 0) < cut}
+
+
+def _learned_facts(
+    st: _State,
+    query: str,
+    active: list[int],
+    node_ids: list[int],
+    texts: dict[int, str],
+    quorum: int = DEFAULT_QUORUM,
+    min_status: str = DEFAULT_LEARNED_STATUS,
+) -> tuple[list[list[str]], dict[int, dict[str, Any]]]:
+    """``([example_query, "learned_as", node_text], {node_id: {status, confirmations}})``.
+
+    Per node the ``MAX_LEARNED_EXAMPLES`` stored examples most similar to ``query`` (cosine of the
+    n-gram features, ties by recency) are kept when they reach ``MIN_EXAMPLE_SIMILARITY`` and share
+    at least ``MIN_SPECIFIC_KCS`` non-self cells with the query (negative selection). A node with no
+    qualifying example emits nothing; its ``status`` is ``confirmed`` at ``quorum`` distinct teach
+    queries, else ``provisional`` (hidden when ``min_status="confirmed"``).
     """
     if not node_ids:
-        return []
+        return [], {}
     qvec = features(query, st.params.d)
-    background = [_tokens(q) for q in st.read.recent_examples(node_ids, BACKGROUND_EXAMPLES)]
-    rare_cap = RARE_TOKEN_SHARE * len(background)
-    q_rare = {t for t in _tokens(query) if sum(t in b for b in background) <= rare_cap}
+    specific = _specific_kcs(st, active)
+    teach = st.read.teach_for(node_ids)
     out: list[list[str]] = []
+    details: dict[int, dict[str, Any]] = {}
     for node_id, rows in st.read.examples_for(node_ids).items():
-        scored = [(float(features(r["query"], st.params.d) @ qvec), r) for r in rows]
-        scored = [
-            (sim, r)
-            for sim, r in scored
-            if sim >= MIN_EXAMPLE_SIMILARITY and q_rare & _tokens(r["query"])
-        ]
+        codes = {t["query"]: set(t["active"]) for t in teach.get(node_id, [])}
+        scored = []
+        for r in rows:
+            sim = float(features(r["query"], st.params.d) @ qvec)
+            if sim < MIN_EXAMPLE_SIMILARITY:
+                continue
+            code = codes.get(r["query"]) or set(_active(st, r["query"]))
+            own = _specific_kcs(st, sorted(code))  # what makes THIS example distinctive
+            shared = len(specific & own)
+            if shared >= MIN_SPECIFIC_KCS and shared >= MIN_COVERAGE * len(own):
+                scored.append((sim, r))
+        if not scored:
+            continue
+        confirmations = max(1, _confirmations(st, [t["query"] for t in teach.get(node_id, [])]))
+        status = "confirmed" if confirmations >= quorum else "provisional"
+        if min_status == "confirmed" and status != "confirmed":
+            continue
         scored.sort(key=lambda t: (-t[0], -t[1]["ts"]))
         out.extend(
             [r["query"], LEARNED_REL, texts[node_id]] for _, r in scored[:MAX_LEARNED_EXAMPLES]
         )
-    return out
+        details[node_id] = {"status": status, "confirmations": confirmations}
+    return out, details
 
 
 def _facts(st: _State, top_ids: list[int], limit: int) -> list[list[str]]:
@@ -493,6 +637,34 @@ def _forget(params: Params, ctx: Context) -> Payload:
     }
 
 
+def _usage_factors(st: _State, decay: float) -> tuple[dict[int, float], float] | None:
+    """Per-node consolidate factors from the usage counters, or ``None`` when nothing was used."""
+    usage = st.read.node_usage()
+    if not usage:
+        return None
+    unused = decay**UNUSED_DECAY_EXPONENT
+    used = 1.0 - (1.0 - decay) * (1.0 - USAGE_PROTECT)
+    factors = {
+        node: unused + min(1.0, u / USAGE_SATURATION) * (used - unused) for node, u in usage.items()
+    }
+    return factors, unused
+
+
+def _replay_items(st: _State, rate: float) -> list[tuple[list[int], int, float]]:
+    """``(kcs, node_id, delta)`` per stored example, re-applied at ``rate``."""
+    teach = {
+        (node, t["query"]): t["active"]
+        for node, rows in st.read.teach_for({r["node_id"] for r in st.read.all_examples()}).items()
+        for t in rows
+    }
+    items = []
+    for row in st.read.all_examples():
+        code = teach.get((row["node_id"], row["query"])) or _active(st, row["query"])
+        delta = rate * ETA * min(float(row["weight"]), REPLAY_WEIGHT_CAP)
+        items.append((sorted(set(code)), row["node_id"], delta))
+    return items
+
+
 def _consolidate(params: Params, ctx: Context) -> Payload:
     decay = params.get("decay", 0.9)
     if not _number_ok(decay) or not 0 < decay <= 1:
@@ -500,13 +672,29 @@ def _consolidate(params: Params, ctx: Context) -> Payload:
     prune = params.get("prune_below", 1e-3)
     if not _number_ok(prune) or not 0 <= prune <= MAX_PRUNE:
         return _error(f"prune_below must be a number in [0, {MAX_PRUNE:g}]")
+    replay = params.get("replay", False)
+    usage_weighting = params.get("usage_weighting", False)
+    if not isinstance(replay, bool) or not isinstance(usage_weighting, bool):
+        return _error("replay and usage_weighting must be booleans")
+    rate = params.get("replay_rate", DEFAULT_REPLAY_RATE)
+    if not _number_ok(rate) or not 0 < rate <= 1:
+        return _error("replay_rate must be a number in (0, 1]")
     st = _get_state()
     try:
         backup = st.write.backup("pre-consolidate")  # lossy write: snapshot first, fail closed
     except BackupError as exc:
         return _error(f"backup before consolidate failed, nothing written: {exc}")
-    decayed, pruned = st.write.decay_assoc(float(decay), float(prune))
-    return {
+    items = _replay_items(st, float(rate)) if replay else None
+    plan = _usage_factors(st, float(decay)) if usage_weighting else None
+    decayed, pruned = st.write.decay_assoc(
+        float(decay),
+        float(prune),
+        replay=items,
+        node_factors=plan[0] if plan else None,
+        default_factor=plan[1] if plan else None,
+        usage_evaporation=(USAGE_EVAPORATION, USAGE_FLOOR) if usage_weighting else None,
+    )
+    out: Payload = {
         "status": "OK",
         "summary": f"decayed {decayed}, pruned {pruned}",
         "backup_slot": backup.get("slot"),
@@ -514,6 +702,11 @@ def _consolidate(params: Params, ctx: Context) -> Payload:
         "pruned": pruned,
         "terse": {"decayed": decayed, "pruned": pruned},
     }
+    if replay:
+        out["replayed"] = len(items or [])
+    if usage_weighting:
+        out["usage_applied"] = plan is not None
+    return out
 
 
 def _restore(params: Params, ctx: Context) -> Payload:
@@ -590,6 +783,14 @@ def register(registry: Registry) -> None:
                 "max": MAX_LAMBDA,
                 "default": DEFAULT_LAMBDA,
             },
+            "quorum": {**int_opt, "min": 1, "max": MAX_QUORUM, "default": DEFAULT_QUORUM},
+            "learned_min_status": {
+                "type": "string",
+                "required": False,
+                "enum": list(LEARNED_STATUSES),
+                "default": DEFAULT_LEARNED_STATUS,
+            },
+            "track_usage": {"type": "boolean", "required": False, "default": False},
         },
         description=(
             "Associative recall. mode='ppr' (default): seeds + learned boost -> "
@@ -599,6 +800,12 @@ def register(registry: Registry) -> None:
             "include up to 2 [taught_query, 'learned_as', node] entries (the taught queries "
             "most similar to yours) and the result item carries learned=true: read it as "
             "'queries worded like taught_query refer to node'. "
+            "A learned node carries learned_status: 'confirmed' when its teach queries are >= "
+            "quorum (default 2) DISTINCT phrasings (near duplicates count once), else "
+            "'provisional'; the boost is not gated by it. learned_min_status='confirmed' hides "
+            "the provisional learned_as explanations (precision over recall: a single-teach "
+            "alias is not explained). track_usage=true counts the edges around the returned "
+            "nodes (pheromone) for consolidate(usage_weighting=true); off by default. "
             "mode='seeds': nearest nodes only (no learned boost, no learned_as). "
             "seeds= selects the seed backend, distinct from "
             "mode='seeds': seeds='cosine' (default): exact cosine over the "
@@ -650,13 +857,25 @@ def register(registry: Registry) -> None:
         params_schema={
             "decay": {"type": "number", "required": False, "min": 0, "max": 1, "default": 0.9},
             "prune_below": {"type": "number", "required": False, "default": 1e-3},
+            "replay": {"type": "boolean", "required": False, "default": False},
+            "replay_rate": {
+                "type": "number",
+                "required": False,
+                "min": 0,
+                "max": 1,
+                "default": DEFAULT_REPLAY_RATE,
+            },
+            "usage_weighting": {"type": "boolean", "required": False, "default": False},
         },
         description=(
             "Decay learned associations (assoc *= decay) and prune |w| < prune_below; teach "
             "examples of nodes left without any association are dropped. 'forget' acts on edge "
-            "sources only: examples follow assoc, not sources."
+            "sources only: examples follow assoc, not sources. replay=true first re-applies the "
+            "stored teach examples at replay_rate (sleep replay) so taught associations survive "
+            "decay; usage_weighting=true makes nodes used by recall(track_usage=true) decay less "
+            "and unused ones more (usage counters evaporate; source facts are never touched)."
         ),
-        example={"decay": 0.9, "prune_below": 0.001},
+        example={"decay": 0.9, "prune_below": 0.001, "replay": True},
     )
     registry.register(
         "memory",

@@ -231,7 +231,9 @@ def test_fly_arm_explains_the_alias_and_no_learn_never_does(tmp_path):
                 assert not [f for f in res["facts"] if f[1] == "learned_as"]
         finally:
             memory.configure(None)
-    assert rates["no_learn"] == 0.0 and rates["fly_update"] >= 0.9
+    # v5 negative selection trades recall of the explanation for precision (false learned_as
+    # 49% -> ~20%): the ranking is unchanged, only some explanations are withheld
+    assert rates["no_learn"] == 0.0 and rates["fly_update"] >= 0.6
 
 
 def test_boost_is_an_overlap_fraction_on_the_cosine_scale():

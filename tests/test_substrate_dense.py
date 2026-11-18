@@ -130,7 +130,7 @@ def test_migration_v2_to_v3_preserves_data_and_is_idempotent(tmp_path):
     db = tmp_path / "v2.db"
     _make_v2(db)
     r, w = open_substrate(db)
-    assert r.contract() == "v4"
+    assert r.contract() == "v5"
     c = r.counts()
     assert (c["nodes"], c["edges"], c["kc_codes"], c["dense_vecs"]) == (3, 1, 3, 0)
     assert [x["text"] for x in r.nodes_without_dense(10)] == ["old0", "old1", "old2"]

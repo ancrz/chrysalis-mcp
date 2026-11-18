@@ -957,6 +957,17 @@ _ALIAS_ASKS: dict[str, tuple[str, str]] = {
     "has_dock_count": ("docks at the {a}", "How many docks does the {a} have?"),
 }
 _ALIAS_RELATIONS = tuple(_ALIAS_ASKS)
+# second, differently worded teach phrasing (quorum arm): a distinct confirmation of the same alias
+_ALIAS_TEACH2 = {
+    "has_population": "{a} inhabitants",
+    "has_elevation_m": "{a} altitude above sea level",
+    "has_founding_year": "{a} year of foundation",
+    "has_dock_count": "{a} number of docks",
+}
+# Common-word variant ("the big apple"): every word is an ordinary word shared by several aliases,
+# only the PAIR identifies an entity. 8 x 8 = 64 combinations, of which at most 24 are taught.
+_COMMON_ADJECTIVES = ("old", "big", "red", "north", "high", "lower", "upper", "great")
+_COMMON_NOUNS = ("house", "tower", "harbor", "market", "bridge", "hill", "camp", "yard")
 
 
 @dataclass(frozen=True)
@@ -969,6 +980,7 @@ class AliasItem:
     teach: str  # phrasing used when the user corrects the system
     test: str  # a different question that still contains the alias
     answer: str  # object of the first triple (the one the questions ask about)
+    teach2: str = ""  # a second, differently worded teach phrasing of the same alias
 
 
 @dataclass(frozen=True)
@@ -978,6 +990,9 @@ class AliasDataset:
     set_b: tuple[AliasItem, ...]  # taught afterwards (interference)
     interference_triples: tuple[tuple[str, str, str], ...]  # unrelated nodes ingested in the KB
     interference_pairs: tuple[tuple[str, str], ...]  # (query, node text) update pairs
+    # (alias never taught, question): both words of the alias occur in taught aliases, the PAIR does
+    # not, so any ``learned_as`` fact on these questions is a false positive.
+    probes: tuple[tuple[str, str], ...] = ()
 
     @property
     def kb_triples(self) -> list[tuple[str, str, str]]:
@@ -988,14 +1003,25 @@ def alias_dataset(
     seed: int = ALIAS_SEED,
     n_entities: int = N_ALIAS_ENTITIES,
     n_interference: int = N_INTERFERENCE,
+    common_words: bool = False,
 ) -> AliasDataset:
-    """Deterministic: invented entity names, alias = unique colour + unique noun, numeric facts."""
+    """Deterministic: invented entity names, alias = unique colour + unique noun, numeric facts.
+
+    ``common_words=True``: aliases are pairs of ordinary words reused across entities (see
+    ``_COMMON_ADJECTIVES``); the default variant draws exactly the same random stream as before.
+    """
     if not 2 <= n_entities <= min(len(_ALIAS_COLORS), len(_ALIAS_NOUNS)) or n_interference < 0:
         raise ValueError("need 2 <= n_entities <= 24 and n_interference >= 0")
     rng = random.Random(seed)
     colors, nouns = list(_ALIAS_COLORS), list(_ALIAS_NOUNS)
     rng.shuffle(colors)
     rng.shuffle(nouns)
+    pairs = [(colors[i], nouns[i]) for i in range(n_entities)]
+    unused: list[tuple[str, str]] = []
+    if common_words:
+        combos = [(a, n) for a in _COMMON_ADJECTIVES for n in _COMMON_NOUNS]
+        rng.shuffle(combos)
+        pairs, unused = combos[:n_entities], combos[n_entities:]
     used: set[str] = set()
     values: set[int] = set()
 
@@ -1021,11 +1047,21 @@ def alias_dataset(
     }
     items = []
     for i in range(n_entities):
-        entity, alias = entity_name(), f"{colors[i]} {nouns[i]}"
+        entity, alias = entity_name(), " ".join(pairs[i])
         rels = rng.sample(_ALIAS_RELATIONS, rng.randint(1, 2))
         triples = tuple((entity, r, str(value(*ranges[r]))) for r in rels)
         teach, test = (t.format(a=alias) for t in _ALIAS_ASKS[rels[0]])
-        items.append(AliasItem(entity, triples, alias, teach, test, triples[0][2]))
+        teach2 = _ALIAS_TEACH2[rels[0]].format(a=alias)
+        items.append(AliasItem(entity, triples, alias, teach, test, triples[0][2], teach2))
+    probes = []
+    for i, item in enumerate(items):
+        if common_words:  # an untaught combo built from words that ARE taught elsewhere
+            probe_pair = unused[i % len(unused)]
+        else:  # colour of one alias + noun of the next: both words taught, the pair is not
+            probe_pair = (colors[i], nouns[(i + 1) % n_entities])
+        alias = " ".join(probe_pair)
+        rel = next(r for r in _ALIAS_RELATIONS if r == item.triples[0][1])
+        probes.append((alias, _ALIAS_ASKS[rel][1].format(a=alias)))
     order = list(items)
     rng.shuffle(order)
     half = len(order) // 2
@@ -1039,4 +1075,5 @@ def alias_dataset(
             (f"filler anchor {i}", "ref", node) for i, (_, node) in enumerate(filler)
         ),
         interference_pairs=tuple(filler),
+        probes=tuple(probes),
     )
