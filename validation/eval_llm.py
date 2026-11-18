@@ -76,6 +76,7 @@ CONTEXT_SEED = 12  # fixed shuffle of the facts in the context arm
 DEFAULT_PARAMS_B = 4.0  # Gemma E4B
 # (name key, total params B, active params B or None for dense); 26B-A4B is a MoE (class medium)
 KNOWN_PARAMS_B: tuple[tuple[str, float, float | None], ...] = (
+    ("deepseek-r1-0528-qwen3-8b", 8.0, None),  # before any qwen key: first substring match wins
     ("e4b", 4.0, None),
     ("qwen3.5-4b", 4.0, None),
     ("26b-a4b", 26.0, 4.0),

@@ -407,3 +407,58 @@ def test_profile_qwen4b_sets_fields_and_env_still_overrides():
     )
     assert over.est_gpu_mib == 6000 and over.alias == "qwen3.5-4b"
     assert ls.DEFAULT_PROFILE == "26b"
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "alias", "gpu", "kv"),
+    [
+        ("qwen4b-km", "Qwen_Qwen3.5-4B-Q4_K_M.gguf", "qwen3.5-4b-q4km", 5376, 512),
+        ("e4b-km", "google_gemma-4-E4B-it-Q4_K_M.gguf", "gemma-4-e4b-q4km", 6656, 512),
+        (
+            "ds8b-km",
+            "deepseek-ai_DeepSeek-R1-0528-Qwen3-8B-Q4_K_M.gguf",
+            "deepseek-r1-0528-qwen3-8b-q4km",
+            7168,
+            1152,
+        ),
+    ],
+)
+def test_q4km_profiles_resolve(name, model, alias, gpu, kv):
+    cfg = Config.from_env({"HOME": "/h"}, profile=name)
+    assert cfg.model.name == model and cfg.alias == alias
+    assert (cfg.ctx, cfg.est_gpu_mib, cfg.est_kv_mib_per_slot, cfg.parallel) == (8192, gpu, kv, 1)
+    assert (cfg.est_ram_mib, cfg.threads, cfg.ram_margin_mib) == (2048, 6, 4096)
+
+
+def test_ds8b_km_admission_estimate_parallel_4():
+    cfg = Config.from_env({"HOME": "/h", "CHRYSALIS_LLM_PARALLEL": "4"}, profile="ds8b-km")
+    assert cfg.total_est_gpu_mib == 7168 + 3 * 1152
+    assert cfg.server_ctx == 8192 * 4
+
+
+def test_chat_template_flag_only_for_ds8b_km():
+    for name in ls.PROFILES:
+        cfg = Config.from_env({"HOME": "/h"}, profile=name)
+        argv = ls.server_argv(cfg)
+        if name == "ds8b-km":
+            i = argv.index("--chat-template-file")
+            assert argv[i + 1] == "/h/.local/share/chrysalis/templates/llama-cpp-deepseek-r1.jinja"
+            assert argv[i - 1] == "--jinja"
+        else:
+            assert cfg.chat_template is None and "--chat-template-file" not in argv
+
+
+def test_chat_template_env_override():
+    env = {"HOME": "/h", "CHRYSALIS_LLM_CHAT_TEMPLATE": "/x/t.jinja"}
+    assert Config.from_env(env, profile="ds8b-km").chat_template == Path("/x/t.jinja")
+    assert Config.from_env(env, profile="26b").chat_template == Path("/x/t.jinja")
+
+
+def test_preflight_reports_missing_chat_template(tmp_path):
+    cfg = make_cfg(tmp_path, chat_template=tmp_path / "t.jinja")
+    out: list[str] = []
+    assert ls.cmd_preflight(cfg, out.append) == 2
+    assert any("missing chat template" in r for r in json.loads(out[0])["reasons"])
+    cfg.chat_template.write_text("")
+    out.clear()
+    assert ls.cmd_preflight(cfg, out.append) == 0

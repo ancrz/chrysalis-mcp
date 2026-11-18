@@ -230,3 +230,10 @@ def test_results_dir_default_relative_and_absolute_override(tmp_path):
         str(tmp_path),
         str(tmp_path / "RESULTS.md"),
     )
+
+
+def test_params_b_for_q4km_aliases():
+    assert eval_llm.params_b_for("qwen3.5-4b-q4km") == (4.0, None)
+    assert eval_llm.params_b_for("gemma-4-e4b-q4km") == (4.0, None)
+    assert eval_llm.params_b_for("deepseek-r1-0528-qwen3-8b-q4km") == (8.0, None)
+    assert eval_llm.params_b_for("deepseek-ai_DeepSeek-R1-0528-Qwen3-8B-Q4_K_M") == (8.0, None)

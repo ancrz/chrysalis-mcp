@@ -82,6 +82,9 @@ class Config:
     memory_profile: str = "minimal"  # "minimal": --no-host --no-repack | "fast": neither
     sysfs: Path | None = None  # drm device dir; None = auto-detect
     meminfo: Path = Path("/proc/meminfo")
+    # Jinja chat template file overriding the GGUF's embedded one (``--chat-template-file``); needed
+    # when the embedded template does not describe tools (DeepSeek-R1 distill). None = embedded.
+    chat_template: Path | None = None
 
     @property
     def server_ctx(self) -> int:
@@ -110,6 +113,9 @@ class Config:
         parallel = _env_int(e, "CHRYSALIS_LLM_PARALLEL", d["parallel"].default)
         if parallel < 1:
             raise ValueError(f"CHRYSALIS_LLM_PARALLEL must be >= 1, got {parallel}")
+        template = e.get("CHRYSALIS_LLM_CHAT_TEMPLATE")
+        if template is None and prof.get("chat_template"):
+            template = str(home / TEMPLATE_DIR / prof["chat_template"])
         return cls(
             binary=Path(
                 e.get(
@@ -139,6 +145,7 @@ class Config:
             alias=e.get("CHRYSALIS_LLM_ALIAS", d["alias"].default),
             sysfs=Path(sysfs) if sysfs else None,
             memory_profile=_profile(e.get("CHRYSALIS_LLM_MEMORY_PROFILE", "minimal")),
+            chat_template=Path(template) if template else None,
         )
 
 
@@ -167,9 +174,52 @@ PROFILES: dict[str, dict[str, Any]] = {
         "threads": 6,
         "ram_margin_mib": 4096,
     },
+    # Golden rule: Q4_K_M quants, one quantizer (bartowski), tool-calling models only.
+    # Qwen3.5-4B dense, Q4_K_M.
+    "qwen4b-km": {
+        "model": "Qwen_Qwen3.5-4B-Q4_K_M.gguf",
+        "alias": "qwen3.5-4b-q4km",
+        "ctx": 8192,
+        "est_gpu_mib": 5376,
+        "parallel": 1,  # opt-in: CHRYSALIS_LLM_PARALLEL=N
+        "est_kv_mib_per_slot": 512,
+        "est_ram_mib": 2048,
+        "threads": 6,
+        "ram_margin_mib": 4096,
+    },
+    # Gemma 4 E4B, Q4_K_M.
+    "e4b-km": {
+        "model": "google_gemma-4-E4B-it-Q4_K_M.gguf",
+        "alias": "gemma-4-e4b-q4km",
+        "ctx": 8192,
+        "est_gpu_mib": 6656,
+        "parallel": 1,  # opt-in: CHRYSALIS_LLM_PARALLEL=N
+        "est_kv_mib_per_slot": 512,
+        "est_ram_mib": 2048,
+        "threads": 6,
+        "ram_margin_mib": 4096,
+    },
+    # DeepSeek-R1-0528 distilled on Qwen3-8B (dense 8B), Q4_K_M. ALWAYS-thinking: thinking cannot
+    # be disabled, so thinking "off" (enable_thinking=False) may be ignored by its chat template.
+    # KV/slot: 36 layers x 8 KV heads x 128 dim x 2 (K,V) x 2 B (f16) = 144 KiB/token
+    # -> 8192 ctx = 1152 MiB.
+    "ds8b-km": {
+        "model": "deepseek-ai_DeepSeek-R1-0528-Qwen3-8B-Q4_K_M.gguf",
+        "alias": "deepseek-r1-0528-qwen3-8b-q4km",
+        "ctx": 8192,
+        "est_gpu_mib": 7168,
+        "parallel": 1,  # opt-in: CHRYSALIS_LLM_PARALLEL=N
+        "est_kv_mib_per_slot": 1152,
+        "est_ram_mib": 2048,
+        "threads": 6,
+        "ram_margin_mib": 4096,
+        # llama.cpp's fixed template (tag b12110): the embedded one does not describe tools
+        "chat_template": "llama-cpp-deepseek-r1.jinja",
+    },
 }
 DEFAULT_PROFILE = "26b"
 MODEL_DIR = ".local/share/chrysalis/models"
+TEMPLATE_DIR = ".local/share/chrysalis/templates"
 
 
 def _profile(name: str) -> str:
@@ -306,6 +356,7 @@ def server_argv(cfg: Config) -> list[str]:
         "-t",
         str(cfg.threads),
         "--jinja",
+        *(["--chat-template-file", str(cfg.chat_template)] if cfg.chat_template else []),
         *MEMORY_PROFILES[cfg.memory_profile],
         "--alias",
         cfg.alias,
@@ -461,8 +512,12 @@ def _state(res: Resources) -> dict[str, Any]:
 def cmd_preflight(cfg: Config, out: Callable[[str], None]) -> int:
     res = read_resources(cfg)
     dec = admit(res, cfg)
-    out(json.dumps({"admitted": dec.admitted, "reasons": list(dec.reasons), **_state(res)}))
-    return 0 if dec.admitted else 2
+    reasons = list(dec.reasons)
+    if cfg.chat_template is not None and not cfg.chat_template.exists():
+        reasons.append(f"missing chat template file {cfg.chat_template}")
+    admitted = dec.admitted and not reasons
+    out(json.dumps({"admitted": admitted, "reasons": reasons, **_state(res)}))
+    return 0 if admitted else 2
 
 
 def cmd_start(
@@ -488,7 +543,7 @@ def cmd_start(
         if not force:
             return 2
         out("RISK: --force given; starting despite refusal (can crash the desktop session)")
-    for path in (cfg.binary, cfg.model):
+    for path in (cfg.binary, cfg.model, *([cfg.chat_template] if cfg.chat_template else [])):
         if not path.exists():
             out(f"REFUSED: missing file {path}")
             return 2
@@ -556,7 +611,10 @@ def main(
     ap.add_argument(
         "--profile",
         choices=sorted(PROFILES),
-        help="model preset (env CHRYSALIS_LLM_PROFILE; default 26b). The lab uses e4b or qwen4b",
+        help=(
+            "model preset (env CHRYSALIS_LLM_PROFILE; default 26b). Lab: e4b, qwen4b. "
+            "Q4_K_M set (bartowski): e4b-km, qwen4b-km, ds8b-km (DeepSeek-R1, always-thinking)"
+        ),
     )
     ap.add_argument("--force", action="store_true", help="start despite a refused admission")
     args = ap.parse_args(argv)
