@@ -1,4 +1,5 @@
-"""``meta`` actions that make the advisory learn from outcomes: feedback, advice_stats, advice_reset.
+"""``meta`` actions that make the advisory learn from outcomes: feedback, advice_stats,
+advice_reset.
 
 Also the blend used by ``meta.advise`` and the handshake prompt hint (see ``core/learning.py``).
 Reward: either the caller reports ``outcome``, or passes ``problem`` + ``assignment`` and the
@@ -63,9 +64,7 @@ def blend(
     )
     choice = learning.decide(used, own, min_n=threshold, explore=sampling, seed=seed)
     if choice is None:
-        ev = learning.evidence(
-            "rule", used, own, bucket=bucket, min_n=threshold, explore=sampling
-        )
+        ev = learning.evidence("rule", used, own, bucket=bucket, min_n=threshold, explore=sampling)
         return rule_advisory, ev
     ev = learning.evidence("learned", used, own, bucket=bucket, min_n=threshold, explore=sampling)
     tool = "using the tool" if choice == "used" else "answering yourself"
@@ -133,20 +132,30 @@ def derive_outcome(
         return "failure", "assignment violates the constraints"
     goal = _goal_var(problem)
     smt2 = problem.get("smt2")
-    if goal is None and isinstance(smt2, str) and task_features.extract("reason.check", problem)["goal"] == "opt":
+    if (
+        goal is None
+        and isinstance(smt2, str)
+        and task_features.extract("reason.check", problem)["goal"] == "opt"
+    ):
         return _err("smt2 with minimize/maximize cannot be judged for optimality; pass outcome")
     if goal is None:
         return "success", "assignment satisfies the constraints"
     sense, var = goal
     solved = reg.dispatch("reason", "solve", {**problem, "override": True}, ctx)
     objective = solved.get("objective")
-    if solved.get("status") != "OK" or not isinstance(objective, dict) or not objective.get("optimal"):
-        return _err("optimum not proven by reason.solve; nothing recorded", solve=solved.get("summary"))
+    if (
+        solved.get("status") != "OK"
+        or not isinstance(objective, dict)
+        or not objective.get("optimal")
+    ):
+        return _err(
+            "optimum not proven by reason.solve; nothing recorded", solve=solved.get("summary")
+        )
     if var not in assignment:
         return "failure", f"assignment lacks the goal variable {var!r}"
     try:
         reached = Fraction(str(assignment[var])) == Fraction(str(objective["value"]))
-    except (ValueError, ZeroDivisionError):
+    except ValueError, ZeroDivisionError:
         return "failure", f"goal variable {var!r} is not numeric"
     verdict = "optimal" if reached else "valid but not optimal"
     return ("success" if reached else "failure"), f"{sense} {var}: assignment {verdict}"
@@ -168,7 +177,11 @@ def _feedback(params: Params, ctx: Context) -> Payload:
     features, problem = parse_task(params)
     if problem is not None:
         return problem
-    outcome, spec, assignment = params.get("outcome"), params.get("problem"), params.get("assignment")
+    outcome, spec, assignment = (
+        params.get("outcome"),
+        params.get("problem"),
+        params.get("assignment"),
+    )
     reason = "reported by caller"
     if outcome is not None:
         if spec is not None or assignment is not None:
@@ -243,7 +256,9 @@ def _advice_stats(params: Params, ctx: Context) -> Payload:
         "total": total,
         "cursor": str(nxt) if more else None,
         "truncated": more,
-        "next_action": "Pass cursor to read the next page." if more else "Learning is read-only here.",
+        "next_action": "Pass cursor to read the next page."
+        if more
+        else "Learning is read-only here.",
         "terse": {"model": model, "total": total},
     }
 

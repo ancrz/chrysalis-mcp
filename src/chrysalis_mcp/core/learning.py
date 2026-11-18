@@ -78,7 +78,7 @@ def bucket_phrase(bucket: str) -> str:
 def model_key(
     model: str | None, family: str | None = None, params_b: float | None = None
 ) -> str | None:
-    """Normalized model name (lower case, runs of non-alphanumerics -> ``-``); ``None`` if unknown."""
+    """Normalized model name (lower case, non-alphanumeric runs -> ``-``); ``None`` if unknown."""
     raw = model or (f"{family}-{params_b:g}b" if family and params_b else family)
     if not raw:
         return None
@@ -273,20 +273,27 @@ class AdviceStore:
         """One deterministic page of rows plus the total row count."""
         if not self._exists():
             return [], 0
-        clause, args = ("model=? AND action=?", [model, action]) if action else ("model=?", [model])
+        args: list[Any] = [model, action, action]
         with _connect(self.path) as conn:
             total = conn.execute(
-                f"SELECT COUNT(*) FROM advice_stats WHERE {clause}", args
+                "SELECT COUNT(*) FROM advice_stats WHERE model=? AND (? IS NULL OR action=?)", args
             ).fetchone()[0]
             found = conn.execute(
                 "SELECT thinking, action, bucket, arm, successes, failures FROM advice_stats "
-                f"WHERE {clause} ORDER BY thinking, action, bucket, arm LIMIT ? OFFSET ?",
+                "WHERE model=? AND (? IS NULL OR action=?) "
+                "ORDER BY thinking, action, bucket, arm LIMIT ? OFFSET ?",
                 [*args, limit, offset],
             ).fetchall()
         return [
             {
-                "thinking": t, "action": a, "bucket": b, "arm": arm,
-                "successes": s, "failures": f, "n": s + f, "rate": rate((s, f)),
+                "thinking": t,
+                "action": a,
+                "bucket": b,
+                "arm": arm,
+                "successes": s,
+                "failures": f,
+                "n": s + f,
+                "rate": rate((s, f)),
             }  # fmt: skip
             for t, a, b, arm, s, f in found
         ], total
@@ -294,9 +301,11 @@ class AdviceStore:
     def reset(self, model: str, action: str | None) -> int:
         if not self._exists():
             return 0
-        clause, args = ("model=? AND action=?", [model, action]) if action else ("model=?", [model])
+        args: list[Any] = [model, action, action]
         with _connect(self.path) as conn:
-            return conn.execute(f"DELETE FROM advice_stats WHERE {clause}", args).rowcount
+            return conn.execute(
+                "DELETE FROM advice_stats WHERE model=? AND (? IS NULL OR action=?)", args
+            ).rowcount
 
 
 def learned_lines(store: AdviceStore, model: str, thinking: str, min_n: int) -> list[str]:

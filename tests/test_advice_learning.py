@@ -1,4 +1,4 @@
-"""Advisory learning: buckets, Beta update, prior until min_n, learned switch, reward, persistence."""
+"""Advisory learning: buckets, Beta update, prior until min_n, learned switch, reward, persist."""
 
 import json
 import subprocess
@@ -98,11 +98,16 @@ def test_feedback_requires_handshake(call):
 def test_feedback_records_and_validates(call, shake):
     shake()
     out = _fb(call, True, "success")
-    assert out["status"] == "OK" and ENVELOPE_KEYS <= set(out)
+    assert out["status"] == "OK" and set(out) >= ENVELOPE_KEYS
     assert out["bucket"] == "atoms:0-3|goal:sat" and out["arm"] == "used"
     assert out["cell"] == {"successes": 1, "failures": 0}
     assert _fb(call, True, "maybe")["status"] == "ERROR"
-    bad = call("meta", "feedback", session_id=SID, params={"action": "meta.stats", "used": True, "outcome": "success"})
+    bad = call(
+        "meta",
+        "feedback",
+        session_id=SID,
+        params={"action": "meta.stats", "used": True, "outcome": "success"},
+    )
     assert bad["status"] == "ERROR"
     both = call(
         "meta", "feedback", session_id=SID,
@@ -149,12 +154,24 @@ def test_explore_is_deterministic_and_env_disables_it(call, shake, monkeypatch):
 
 def test_handshake_prompt_hint_carries_learned_lines(call, shake):
     shake()
-    assert "learned" not in call("meta", "handshake", session_id=SID, params={"model": "Gemma-4-E4B", "params_b": 4, "thinking": False}).get("prompt_hint", "")
+    assert "learned" not in call(
+        "meta",
+        "handshake",
+        session_id=SID,
+        params={"model": "Gemma-4-E4B", "params_b": 4, "thinking": False},
+    ).get("prompt_hint", "")
     for _ in range(5):
         _fb(call, True, "failure", HARD)
         _fb(call, False, "success", HARD)
-    out = call("meta", "handshake", session_id=SID, params={"model": "gemma-4-e4b", "params_b": 4, "thinking": False})
-    assert "learned from 10 outcomes" in out["prompt_hint"] and "answer yourself" in out["prompt_hint"]
+    out = call(
+        "meta",
+        "handshake",
+        session_id=SID,
+        params={"model": "gemma-4-e4b", "params_b": 4, "thinking": False},
+    )
+    assert (
+        "learned from 10 outcomes" in out["prompt_hint"] and "answer yourself" in out["prompt_hint"]
+    )
 
 
 def test_thinking_flag_separates_models_arms(call, shake):
@@ -167,7 +184,9 @@ def test_thinking_flag_separates_models_arms(call, shake):
 
 # --- reward via reason.check -------------------------------------------------------------------
 
-SAT = {"constraints": {"vars": {"x": "int", "y": "int"}, "assert": ["x + y == 10", "x > y", "y > 0"]}}
+SAT = {
+    "constraints": {"vars": {"x": "int", "y": "int"}, "assert": ["x + y == 10", "x > y", "y > 0"]}
+}
 OPT = {
     "constraints": {
         "vars": {"x": "int", "y": "int"},
@@ -180,7 +199,10 @@ OPT = {
 def _reward(call, problem, assignment, used=True):
     return call(
         "meta", "feedback", session_id=SID,
-        params={"action": "reason.solve", "used": used, "problem": problem, "assignment": assignment},
+        params={
+            "action": "reason.solve", "used": used,
+            "problem": problem, "assignment": assignment,
+        },
     )  # fmt: skip
 
 
@@ -223,9 +245,11 @@ def test_stats_paginates_and_reset_needs_confirm(call, shake):
     for task in (EASY, HARD, {"n_atoms": 5, "goal": "opt"}):
         _fb(call, True, "success", task)
     page = call("meta", "advice_stats", session_id=SID, params={"limit": 2})
-    assert ENVELOPE_KEYS <= set(page) and len(page["rows"]) == 2 and page["total"] == 3
+    assert set(page) >= ENVELOPE_KEYS and len(page["rows"]) == 2 and page["total"] == 3
     assert page["truncated"] is True and page["cursor"] == "2"
-    rest = call("meta", "advice_stats", session_id=SID, params={"limit": 2, "cursor": page["cursor"]})
+    rest = call(
+        "meta", "advice_stats", session_id=SID, params={"limit": 2, "cursor": page["cursor"]}
+    )
     assert len(rest["rows"]) == 1 and rest["cursor"] is None
     assert call("meta", "advice_stats", session_id=SID, params={"limit": 0})["status"] == "ERROR"
     for params in ({}, {"confirm": False}):
@@ -253,7 +277,9 @@ def test_persistence_across_processes(call, shake, tmp_path):
         "print(json.dumps(AdviceStore().cells('gemma-4-e4b','off','reason.solve','atoms:0-3|goal:sat')))"
     )
     env = {**__import__("os").environ, "CHRYSALIS_ADVICE_DB": db}
-    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, check=True)
+    out = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, env=env, check=True
+    )
     assert json.loads(out.stdout) == [[3, 0], [0, 0]]
     assert Path(db).exists() and not (tmp_path / "substrate.db").exists()
 
@@ -272,7 +298,7 @@ def test_envelope_in_every_verbosity(call, shake, verbosity):
     shake()
     for params, action in (({"limit": 5}, "advice_stats"), ({"confirm": False}, "advice_reset")):
         out = call("meta", action, session_id=SID, params=params, verbosity=verbosity)
-        assert ENVELOPE_KEYS <= set(out)
+        assert set(out) >= ENVELOPE_KEYS
     fb = call("meta", "feedback", session_id=SID, verbosity=verbosity,
               params={"action": "reason.solve", "used": True, "outcome": "success"})  # fmt: skip
-    assert ENVELOPE_KEYS <= set(fb) and fb["status"] == "OK"
+    assert set(fb) >= ENVELOPE_KEYS and fb["status"] == "OK"
