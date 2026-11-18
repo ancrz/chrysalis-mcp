@@ -156,7 +156,7 @@ Call `meta.schema` for the full machine-readable contract, or `meta.discover` fo
 | `memory` | `recall` | Associative recall: `mode` `ppr` (default) or `seeds`. `ppr` includes the learned boost (`lambda`, on a [0,1] scale via `BOOST_SCALE`); for learned nodes it also returns `learned_as` facts and a `learned` flag. |
 | `memory` | `update` | Reinforce the association between a query and a node; stores up to 3 teach examples per node. |
 | `memory` | `forget` | Soft-invalidate the edges of a `source`. |
-| `memory` | `consolidate` | Decay learned associations and prune weak ones; drops orphan examples. |
+| `memory` | `consolidate` | Decay learned associations and prune weak ones; drops orphan examples. Opt-in `replay` (sleep replay of stored examples, `replay_rate`) and `usage_weighting` (used nodes decay less). |
 | `memory` | `restore` | List or restore verified rotating backups taken before `forget`/`consolidate`. |
 | `reason` | `solve` | Solve an SMT-LIB 2 problem (`smt2`) or a JSON constraint problem (`constraints`) with Z3. |
 | `reason` | `check` | Check whether an `assignment` satisfies the problem. |
@@ -295,7 +295,8 @@ The validation loop found two real defects in the learning path, both fixed:
 - **Common-word aliases.** On realistic aliases such as "the big apple", false `learned_as` facts
   appear 17-58% of the time.
 - **Interference.** Recall degrades at 300 high-overlap interference updates.
-- **Snapshots.** Substrate v4 cannot restore v3 snapshots.
+- **Snapshots.** Substrate v5 cannot restore v3 or v4 snapshots.
+- **Learned-as precision/recall (v5).** Order-independent negative selection (per-KC document frequency over distinct nodes + coverage) cut false `learned_as` on untaught common-word aliases from ~70% to ~18% on the bench, at the cost of explaining ~67% (was ~97%) of taught aliases; `recall` also labels explanations `provisional`/`confirmed` (quorum of 2 distinct teach phrasings).
 - **Advisories are self-referential.** The evidence rules come from the same benchmarks that report them.
 
 ### Reproduce

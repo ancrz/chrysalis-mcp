@@ -13,6 +13,13 @@ v4 = ``examples`` (bounded per-node teach queries so learned associations can be
 model). The v3 -> v4 migration only adds that table (backfill = none: associations taught before v4
 simply have no stored example). Backups are whole-database copies, so they include ``examples``;
 ``restore`` only accepts snapshots written under the current contract.
+v5 = the bio-inspired layer, three tables and no column change: ``teach_queries`` (every distinct
+teach query of a node, <= ``MAX_TEACH_QUERIES``, with its FlyHash code: the basis of the
+order-independent "self" profile and of quorum counting), ``node_kcs`` (derived: the Kenyon cells
+that fire for each node's teach queries, so per-KC document frequency over DISTINCT nodes is a
+count and not a window) and ``edge_usage`` (bounded pheromone counters of recalled edges). The
+v4 -> v5 migration only adds tables; ``teach_queries``/``node_kcs`` of associations taught under
+v4 are backfilled from ``examples`` by the memory domain on open (the hasher lives there).
 """
 
 import os
@@ -30,8 +37,9 @@ try:  # fail-soft: the substrate works (slower) without the vector extension
 except ImportError, OSError:  # pragma: no cover - depends on host
     _sqlite_vec = None
 
-SUBSTRATE_CONTRACT = "v4"
-MAX_EXAMPLES_PER_NODE = 3  # most recent teach queries kept per node
+SUBSTRATE_CONTRACT = "v5"
+MAX_EXAMPLES_PER_NODE = 3  # most recent teach queries kept per node (quoted by learned_as)
+MAX_TEACH_QUERIES = 16  # most recent DISTINCT teach queries kept per node (self profile, quorum)
 ENV_DB_PATH = "CHRYSALIS_DB"
 MEMORY_PATH = ":memory:"
 BUSY_TIMEOUT_MS = 5000
@@ -94,6 +102,25 @@ CREATE TABLE IF NOT EXISTS examples (
 );
 """
 
+_SCHEMA_V5 = """
+CREATE TABLE IF NOT EXISTS teach_queries (
+    node_id INTEGER NOT NULL REFERENCES nodes(id),
+    query TEXT NOT NULL,
+    active BLOB NOT NULL,
+    ts INTEGER NOT NULL,
+    PRIMARY KEY (node_id, query)
+);
+CREATE TABLE IF NOT EXISTS node_kcs (
+    kc INTEGER NOT NULL,
+    node_id INTEGER NOT NULL REFERENCES nodes(id),
+    PRIMARY KEY (kc, node_id)
+) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS edge_usage (
+    edge_id INTEGER PRIMARY KEY REFERENCES edges(id),
+    usage REAL NOT NULL
+);
+"""
+
 
 @dataclass(frozen=True)
 class FlyHashParams:
@@ -121,7 +148,19 @@ MIN_M, MAX_M, MAX_D = 8, 65536, 65536
 _FLYHASH_KEYS = ("d", "m", "k", "c", "seed")
 MAX_VEC_K = 4096  # sqlite-vec KNN limit
 
-TABLES = ("meta", "nodes", "edges", "kc_codes", "assoc", "log", "dense_vecs", "examples")
+TABLES = (
+    "meta",
+    "nodes",
+    "edges",
+    "kc_codes",
+    "assoc",
+    "log",
+    "dense_vecs",
+    "examples",
+    "teach_queries",
+    "node_kcs",
+    "edge_usage",
+)
 
 
 class SubstrateContractError(RuntimeError):
@@ -230,7 +269,7 @@ class Database:
 
     def _migrate(self, requested: FlyHashParams | None) -> FlyHashParams:
         with self.transaction() as conn:
-            for statement in (_SCHEMA_V1 + _SCHEMA_V3 + _SCHEMA_V4).split(";"):
+            for statement in (_SCHEMA_V1 + _SCHEMA_V3 + _SCHEMA_V4 + _SCHEMA_V5).split(";"):
                 if statement.strip():
                     conn.execute(statement)
             row = conn.execute("SELECT value FROM meta WHERE key = 'contract'").fetchone()

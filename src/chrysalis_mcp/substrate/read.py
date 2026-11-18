@@ -27,6 +27,9 @@ _COUNT_SQL = {
     "log": "SELECT COUNT(*) FROM log",
     "dense_vecs": "SELECT COUNT(*) FROM dense_vecs",
     "examples": "SELECT COUNT(*) FROM examples",
+    "teach_queries": "SELECT COUNT(*) FROM teach_queries",
+    "node_kcs": "SELECT COUNT(*) FROM node_kcs",
+    "edge_usage": "SELECT COUNT(*) FROM edge_usage",
 }
 
 
@@ -39,6 +42,12 @@ class SubstrateRead(Protocol):
     def assoc_for(self, kc_ids: Iterable[int]) -> list[Row]: ...
     def examples_for(self, node_ids: Iterable[int]) -> dict[int, list[Row]]: ...
     def recent_examples(self, exclude_ids: Iterable[int], limit: int) -> list[str]: ...
+    def teach_for(self, node_ids: Iterable[int]) -> dict[int, list[Row]]: ...
+    def kc_node_counts(self, kc_ids: Iterable[int]) -> dict[int, int]: ...
+    def teach_node_count(self) -> int: ...
+    def examples_without_teach(self, limit: int) -> list[Row]: ...
+    def all_examples(self) -> list[Row]: ...
+    def node_usage(self) -> dict[int, float]: ...
     def counts(self) -> dict[str, int]: ...
     def flyhash_params(self) -> FlyHashParams: ...
     def vec_available(self) -> bool: ...
@@ -142,6 +151,73 @@ class SqliteRead:
                 (json.dumps(list(dict.fromkeys(exclude_ids))), limit),
             )
             return [r[0] for r in rows]
+
+    def teach_for(self, node_ids: Iterable[int]) -> dict[int, list[Row]]:
+        """Every stored teach query per node (``query``, ``active`` codes, ``ts``), recent first."""
+        ids = list(dict.fromkeys(node_ids))
+        if not ids:
+            return {}
+        out: dict[int, list[Row]] = {}
+        with self._db.reader() as conn:
+            rows = conn.execute(
+                "SELECT node_id, query, active, ts FROM teach_queries "
+                "WHERE node_id IN (SELECT value FROM json_each(?)) ORDER BY node_id, ts DESC",
+                (json.dumps(ids),),
+            )
+            for r in rows:
+                out.setdefault(r["node_id"], []).append(
+                    {"query": r["query"], "active": unpack_active(r["active"]), "ts": r["ts"]}
+                )
+        return out
+
+    def kc_node_counts(self, kc_ids: Iterable[int]) -> dict[int, int]:
+        """Document frequency of each KC over DISTINCT nodes (kcs never taught are absent)."""
+        ids = sorted(set(kc_ids))
+        if not ids:
+            return {}
+        with self._db.reader() as conn:
+            rows = conn.execute(
+                "SELECT kc, COUNT(*) FROM node_kcs "
+                "WHERE kc IN (SELECT value FROM json_each(?)) GROUP BY kc",
+                (json.dumps(ids),),
+            )
+            return {r[0]: r[1] for r in rows}
+
+    def teach_node_count(self) -> int:
+        """Number of distinct nodes that have at least one stored teach query."""
+        with self._db.reader() as conn:
+            return conn.execute("SELECT COUNT(DISTINCT node_id) FROM teach_queries").fetchone()[0]
+
+    def examples_without_teach(self, limit: int) -> list[Row]:
+        """Examples (``node_id``, ``query``, ``ts``) without a ``teach_queries`` row (backfill)."""
+        with self._db.reader() as conn:
+            rows = conn.execute(
+                "SELECT e.node_id, e.query, e.ts FROM examples e LEFT JOIN teach_queries t "
+                "ON t.node_id = e.node_id AND t.query = e.query "
+                "WHERE t.query IS NULL ORDER BY e.node_id, e.query LIMIT ?",
+                (limit,),
+            )
+            return [dict(r) for r in rows]
+
+    def all_examples(self) -> list[Row]:
+        """Every stored example (``node_id``, ``query``, ``weight``), deterministic order."""
+        with self._db.reader() as conn:
+            rows = conn.execute(
+                "SELECT node_id, query, weight FROM examples ORDER BY node_id, query"
+            )
+            return [dict(r) for r in rows]
+
+    def node_usage(self) -> dict[int, float]:
+        """Summed ``edge_usage`` of the valid edges touching each node (both endpoints)."""
+        with self._db.reader() as conn:
+            rows = conn.execute(
+                "SELECT n, SUM(u) FROM ("
+                "SELECT e.subj AS n, u.usage AS u FROM edge_usage u "
+                "JOIN edges e ON e.id = u.edge_id WHERE e.valid = 1 "
+                "UNION ALL SELECT e.obj, u.usage FROM edge_usage u "
+                "JOIN edges e ON e.id = u.edge_id WHERE e.valid = 1) GROUP BY n"
+            )
+            return {r[0]: float(r[1]) for r in rows}
 
     def counts(self) -> dict[str, int]:
         with self._db.reader() as conn:

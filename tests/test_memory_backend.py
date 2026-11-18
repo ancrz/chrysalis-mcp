@@ -107,7 +107,7 @@ def test_v2_database_is_backfilled_on_open(call, db):
     _make_v2(db)
     memory.configure(db)
     st = memory._get_state()
-    assert st.read.contract() == "v4" and st.read.counts()["dense_vecs"] == 3
+    assert st.read.contract() == "v5" and st.read.counts()["dense_vecs"] == 3
     assert st.read.nodes_without_dense(10) == []
     res = call("memory", "recall", params={"query": "old1", "k": 1, "mode": "seeds"})
     assert texts(res) == ["old1"]

@@ -36,7 +36,7 @@ def test_forget_and_consolidate_create_slots(call, db):
     assert f["backup_slot"] == 0 and c["backup_slot"] == 1
     meta = (db.parent / "backups" / "substrate.0.json").read_text()
     info = json.loads(meta)
-    assert info["reason"] == "pre-forget" and info["contract"] == "v4" and info["log_max_id"] >= 1
+    assert info["reason"] == "pre-forget" and info["contract"] == "v5" and info["log_max_id"] >= 1
     listing = call("memory", "restore")
     assert [b["slot"] for b in listing["backups"]] == [0, 1]
 
