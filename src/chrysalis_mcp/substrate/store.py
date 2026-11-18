@@ -294,7 +294,9 @@ class Database:
 
     def _migrate(self, requested: FlyHashParams | None) -> FlyHashParams:
         with self.transaction() as conn:
-            for statement in (_SCHEMA_V1 + _SCHEMA_V3 + _SCHEMA_V4 + _SCHEMA_V5 + _SCHEMA_V6).split(";"):
+            for statement in (_SCHEMA_V1 + _SCHEMA_V3 + _SCHEMA_V4 + _SCHEMA_V5 + _SCHEMA_V6).split(
+                ";"
+            ):
                 if statement.strip():
                     conn.execute(statement)
             row = conn.execute("SELECT value FROM meta WHERE key = 'contract'").fetchone()

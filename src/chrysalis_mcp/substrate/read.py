@@ -7,7 +7,6 @@ from typing import Any, Protocol
 
 import numpy as np
 
-from .write import protected_clause
 from .store import (
     MAX_VEC_K,
     Database,
@@ -15,6 +14,7 @@ from .store import (
     active_to_bits,
     vec_to_blob,
 )
+from .write import protect_args
 
 Row = dict[str, Any]
 COSINE_DECIMALS = 6  # float32 noise floor: both backends round to it, then order by (-sim, id)
@@ -388,20 +388,37 @@ class SqliteRead:
 
     def capture_stats(self, window: int, nodes: Iterable[int]) -> dict[str, int]:
         """Associations a capture pass exempts: tagged in the window, confirmed, and either."""
-        confirmed = json.dumps(sorted(set(nodes)))
-        tagged_sql, tagged_args = protected_clause(window, [])
-        any_sql, any_args = protected_clause(window, list(json.loads(confirmed)))
-        sql = {
-            "assoc": ("1", []),
-            "tagged": (tagged_sql, tagged_args),
-            "confirmed": ("assoc.node_id IN (SELECT value FROM json_each(?))", [confirmed]),
-            "captured": (any_sql, any_args),
-        }
+        confirmed = sorted(set(nodes))
+        tagged = protect_args(window, [])
+        both = protect_args(window, confirmed)
         with self._db.reader() as conn:
-            return {
-                key: conn.execute(f"SELECT COUNT(*) FROM assoc WHERE {clause}", args).fetchone()[0]
-                for key, (clause, args) in sql.items()
-            }
+            total = conn.execute("SELECT COUNT(*) FROM assoc").fetchone()[0]
+            n_tagged = conn.execute(
+                "SELECT COUNT(*) FROM assoc WHERE "
+                "(( ? = 1 AND EXISTS (SELECT 1 FROM assoc_tags t WHERE t.kc = assoc.kc "
+                "AND t.node_id = assoc.node_id AND t.tag > "
+                "COALESCE((SELECT CAST(value AS INTEGER) FROM meta WHERE key = ?), 0) - ?)) "
+                "OR assoc.node_id IN (SELECT value FROM json_each(?)))",
+                tagged,
+            ).fetchone()[0]
+            n_confirmed = conn.execute(
+                "SELECT COUNT(*) FROM assoc WHERE node_id IN (SELECT value FROM json_each(?))",
+                (json.dumps(confirmed),),
+            ).fetchone()[0]
+            n_captured = conn.execute(
+                "SELECT COUNT(*) FROM assoc WHERE "
+                "(( ? = 1 AND EXISTS (SELECT 1 FROM assoc_tags t WHERE t.kc = assoc.kc "
+                "AND t.node_id = assoc.node_id AND t.tag > "
+                "COALESCE((SELECT CAST(value AS INTEGER) FROM meta WHERE key = ?), 0) - ?)) "
+                "OR assoc.node_id IN (SELECT value FROM json_each(?)))",
+                both,
+            ).fetchone()[0]
+        return {
+            "assoc": total,
+            "tagged": n_tagged,
+            "confirmed": n_confirmed,
+            "captured": n_captured,
+        }
 
     def flyvec_info(self) -> Row | None:
         """Parameters of the trained FlyVec model (``None`` when never trained)."""

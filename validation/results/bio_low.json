@@ -1,0 +1,126 @@
+{
+  "hypothesis": "bio-low",
+  "config": {
+    "seeds": [
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "k": 5,
+    "n_set_a": 12,
+    "n_set_b": 12,
+    "n_noise": 300,
+    "cycles": 4,
+    "decay": {
+      "decay": 0.5,
+      "prune_below": 0.1
+    },
+    "flyvec": {
+      "epochs": 5,
+      "hidden": 256,
+      "active": 16
+    }
+  },
+  "data": {
+    "l1_capture": {
+      "plain": {
+        "recall_a": 0.0667,
+        "recall_b": 0.0333,
+        "assoc_rows_before": 20736.0,
+        "assoc_rows_after": 0.0,
+        "captured_last_cycle": 0.0
+      },
+      "capture_tag": {
+        "recall_a": 0.9667,
+        "recall_b": 0.9667,
+        "assoc_rows_before": 20736.0,
+        "assoc_rows_after": 1536.0,
+        "captured_last_cycle": 1536.0
+      },
+      "capture_confirmed": {
+        "recall_a": 1.0,
+        "recall_b": 0.0833,
+        "assoc_rows_before": 21303.6,
+        "assoc_rows_after": 1399.6,
+        "captured_last_cycle": 1399.6
+      }
+    },
+    "l2_inhibition": {
+      "fixed": {
+        "alias_recall": 0.9667,
+        "plain_recall": 0.9167,
+        "explained": 0.6,
+        "false_learned_as": 0.1667
+      },
+      "adaptive_z0.5": {
+        "alias_recall": 0.9833,
+        "plain_recall": 1.0,
+        "explained": 0.8667,
+        "false_learned_as": 0.5417
+      },
+      "adaptive_z1.0": {
+        "alias_recall": 0.9833,
+        "plain_recall": 1.0,
+        "explained": 0.8667,
+        "false_learned_as": 0.5417
+      },
+      "adaptive_z2.0": {
+        "alias_recall": 0.9833,
+        "plain_recall": 1.0,
+        "explained": 0.8667,
+        "false_learned_as": 0.5417
+      }
+    },
+    "l3_sdm": {
+      "ppr": {
+        "alias_recall": 0.9667,
+        "plain_recall": 0.9167,
+        "ms_per_alias_query": 7.527
+      },
+      "sdm_r64": {
+        "alias_recall": 0.0,
+        "plain_recall": 0.0,
+        "ms_per_alias_query": 2.4076
+      },
+      "sdm_r96": {
+        "alias_recall": 0.0,
+        "plain_recall": 0.3167,
+        "ms_per_alias_query": 2.2446
+      },
+      "sdm_r128": {
+        "alias_recall": 0.0333,
+        "plain_recall": 0.9917,
+        "ms_per_alias_query": 10.1436
+      }
+    },
+    "l4_flyvec": {
+      "ngram_seeds": {
+        "plain_recall": 1.0,
+        "typo_recall": 1.0,
+        "alias_recall": 0.0667
+      },
+      "flyvec_seeds": {
+        "plain_recall": 1.0,
+        "typo_recall": 1.0,
+        "alias_recall": 0.0667
+      },
+      "ngram_ppr": {
+        "plain_recall": 0.9167,
+        "typo_recall": 0.8083,
+        "alias_recall": 0.9667
+      },
+      "flyvec_ppr": {
+        "plain_recall": 1.0,
+        "typo_recall": 0.85,
+        "alias_recall": 0.9667
+      },
+      "model": {
+        "vocab": 369.2,
+        "samples_used": 11520.0,
+        "nodes_encoded": 659.8
+      }
+    }
+  }
+}

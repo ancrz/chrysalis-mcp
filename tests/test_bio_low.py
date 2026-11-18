@@ -33,9 +33,10 @@ def db(tmp_path):
 
 
 def _teach(call, query, node="Quortre Annex", delta=1.0):
-    assert call("memory", "update", params={"query": query, "node": node, "delta": delta})[
-        "status"
-    ] == "OK"
+    assert (
+        call("memory", "update", params={"query": query, "node": node, "delta": delta})["status"]
+        == "OK"
+    )
 
 
 def _assoc_total(node):
@@ -75,9 +76,7 @@ def test_update_tags_and_capture_exempts_recent_and_confirmed(call):
     _teach(call, Q1, "Lumen Keep")
     _teach(call, Q1B, "Lumen Keep")  # two distinct phrasings -> confirmed
     assert memory._get_state().read.counts()["assoc_tags"] > 0
-    out = call(
-        "memory", "consolidate", params={"capture": True, "capture_window": 2, "decay": 0.5}
-    )
+    out = call("memory", "consolidate", params={"capture": True, "capture_window": 2, "decay": 0.5})
     assert out["status"] == "OK"
     assert out["captured"] == out["captured_tagged"] + out["captured_confirmed"] - _overlap(out)
     assert out["captured"] > 0 and out["decayable"] > 0
@@ -264,7 +263,9 @@ def test_feedback_returns_a_typed_retryable_error_when_the_advice_store_is_locke
     def locked(self, *a, **k):
         raise sqlite3.OperationalError("database is locked")
 
-    call("meta", "handshake", session_id="s", params={"model": "m", "params_b": 4, "thinking": False})
+    call(
+        "meta", "handshake", session_id="s", params={"model": "m", "params_b": 4, "thinking": False}
+    )
     monkeypatch.setattr(AdviceStore, "record", locked)
     out = call(
         "meta",

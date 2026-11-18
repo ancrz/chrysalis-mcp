@@ -1,0 +1,202 @@
+{
+  "hypothesis": "H-b-bio",
+  "config": {
+    "seeds": [
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "k": 5,
+    "cycles": 4,
+    "decay": {
+      "decay": 0.5,
+      "prune_below": 0.1
+    }
+  },
+  "data": {
+    "standard": {
+      "single": {
+        "explained": 0.6833,
+        "false_learned_as": 0.0583,
+        "explained_confirmed": 0.0,
+        "false_confirmed": 0.0,
+        "taught": 0.9667,
+        "retained": 0.9667,
+        "explained_retained": 0.6,
+        "false_learned_as_retained": 0.1667,
+        "explained_confirmed_retained": 0.0,
+        "false_confirmed_retained": 0.0
+      },
+      "x2": {
+        "explained": 0.7167,
+        "false_learned_as": 0.0583,
+        "explained_confirmed": 0.7167,
+        "false_confirmed": 0.0583,
+        "taught": 1.0,
+        "retained": 1.0,
+        "explained_retained": 0.6167,
+        "false_learned_as_retained": 0.2,
+        "explained_confirmed_retained": 0.6167,
+        "false_confirmed_retained": 0.2
+      },
+      "decay": {
+        "explained": 0.6833,
+        "false_learned_as": 0.0583,
+        "explained_confirmed": 0.0,
+        "false_confirmed": 0.0,
+        "taught": 0.9667,
+        "retained": 0.9667,
+        "explained_retained": 0.6,
+        "false_learned_as_retained": 0.1667,
+        "explained_confirmed_retained": 0.0,
+        "false_confirmed_retained": 0.0,
+        "after_cycles": 0.0667,
+        "after_cycles_used": 0.0,
+        "after_cycles_unused": 0.1333,
+        "explained_after_cycles": 0.0
+      },
+      "decay_replay": {
+        "explained": 0.6833,
+        "false_learned_as": 0.0583,
+        "explained_confirmed": 0.0,
+        "false_confirmed": 0.0,
+        "taught": 0.9667,
+        "retained": 0.9667,
+        "explained_retained": 0.6,
+        "false_learned_as_retained": 0.1667,
+        "explained_confirmed_retained": 0.0,
+        "false_confirmed_retained": 0.0,
+        "after_cycles": 0.6833,
+        "after_cycles_used": 0.6667,
+        "after_cycles_unused": 0.7,
+        "explained_after_cycles": 0.55
+      },
+      "usage_off": {
+        "explained": 0.6833,
+        "false_learned_as": 0.0583,
+        "explained_confirmed": 0.0,
+        "false_confirmed": 0.0,
+        "taught": 0.9667,
+        "retained": 0.9667,
+        "explained_retained": 0.6,
+        "false_learned_as_retained": 0.1667,
+        "explained_confirmed_retained": 0.0,
+        "false_confirmed_retained": 0.0,
+        "after_cycles": 0.0667,
+        "after_cycles_used": 0.0,
+        "after_cycles_unused": 0.1333,
+        "explained_after_cycles": 0.0
+      },
+      "usage_on": {
+        "explained": 0.6833,
+        "false_learned_as": 0.0583,
+        "explained_confirmed": 0.0,
+        "false_confirmed": 0.0,
+        "taught": 0.9667,
+        "retained": 0.9667,
+        "explained_retained": 0.6,
+        "false_learned_as_retained": 0.1667,
+        "explained_confirmed_retained": 0.0,
+        "false_confirmed_retained": 0.0,
+        "after_cycles": 0.5167,
+        "after_cycles_used": 0.6,
+        "after_cycles_unused": 0.4333,
+        "explained_after_cycles": 0.4333
+      },
+      "order_agreement": 1.0
+    },
+    "common": {
+      "single": {
+        "explained": 0.6167,
+        "false_learned_as": 0.1083,
+        "explained_confirmed": 0.0,
+        "false_confirmed": 0.0,
+        "taught": 0.9667,
+        "retained": 0.9667,
+        "explained_retained": 0.6667,
+        "false_learned_as_retained": 0.1833,
+        "explained_confirmed_retained": 0.0,
+        "false_confirmed_retained": 0.0
+      },
+      "x2": {
+        "explained": 0.7167,
+        "false_learned_as": 0.1583,
+        "explained_confirmed": 0.7167,
+        "false_confirmed": 0.1583,
+        "taught": 0.9833,
+        "retained": 0.9833,
+        "explained_retained": 0.7333,
+        "false_learned_as_retained": 0.2583,
+        "explained_confirmed_retained": 0.7333,
+        "false_confirmed_retained": 0.2583
+      },
+      "decay": {
+        "explained": 0.6167,
+        "false_learned_as": 0.1083,
+        "explained_confirmed": 0.0,
+        "false_confirmed": 0.0,
+        "taught": 0.9667,
+        "retained": 0.9667,
+        "explained_retained": 0.6667,
+        "false_learned_as_retained": 0.1833,
+        "explained_confirmed_retained": 0.0,
+        "false_confirmed_retained": 0.0,
+        "after_cycles": 0.0667,
+        "after_cycles_used": 0.0333,
+        "after_cycles_unused": 0.1,
+        "explained_after_cycles": 0.0
+      },
+      "decay_replay": {
+        "explained": 0.6167,
+        "false_learned_as": 0.1083,
+        "explained_confirmed": 0.0,
+        "false_confirmed": 0.0,
+        "taught": 0.9667,
+        "retained": 0.9667,
+        "explained_retained": 0.6667,
+        "false_learned_as_retained": 0.1833,
+        "explained_confirmed_retained": 0.0,
+        "false_confirmed_retained": 0.0,
+        "after_cycles": 0.5667,
+        "after_cycles_used": 0.5,
+        "after_cycles_unused": 0.6333,
+        "explained_after_cycles": 0.5333
+      },
+      "usage_off": {
+        "explained": 0.6167,
+        "false_learned_as": 0.1083,
+        "explained_confirmed": 0.0,
+        "false_confirmed": 0.0,
+        "taught": 0.9667,
+        "retained": 0.9667,
+        "explained_retained": 0.6667,
+        "false_learned_as_retained": 0.1833,
+        "explained_confirmed_retained": 0.0,
+        "false_confirmed_retained": 0.0,
+        "after_cycles": 0.0667,
+        "after_cycles_used": 0.0333,
+        "after_cycles_unused": 0.1,
+        "explained_after_cycles": 0.0
+      },
+      "usage_on": {
+        "explained": 0.6167,
+        "false_learned_as": 0.1083,
+        "explained_confirmed": 0.0,
+        "false_confirmed": 0.0,
+        "taught": 0.9667,
+        "retained": 0.9667,
+        "explained_retained": 0.6667,
+        "false_learned_as_retained": 0.1833,
+        "explained_confirmed_retained": 0.0,
+        "false_confirmed_retained": 0.0,
+        "after_cycles": 0.5167,
+        "after_cycles_used": 0.6667,
+        "after_cycles_unused": 0.3667,
+        "explained_after_cycles": 0.35
+      },
+      "order_agreement": 1.0
+    }
+  }
+}

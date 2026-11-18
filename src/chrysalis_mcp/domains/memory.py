@@ -61,8 +61,8 @@ import math
 import os
 import re
 import threading
-from dataclasses import dataclass
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -335,7 +335,7 @@ def _int_param(params: Params, name: str, default: int, lo: int, hi: int) -> int
 
 
 def _active(st: _State, query: str, inhibition: str = DEFAULT_INHIBITION, z: float = DEFAULT_Z):
-    """Active KCs of a text; ``inhibition="adaptive"`` is a QUERY-time option (stored codes: fixed)."""
+    """Active KCs of a text; ``inhibition="adaptive"`` is a query-time option (stored: fixed)."""
     vec = features(query, st.params.d)
     if inhibition == "adaptive":
         return st.hasher.hash_adaptive(vec, z).tolist()

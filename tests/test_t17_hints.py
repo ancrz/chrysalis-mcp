@@ -97,7 +97,10 @@ def test_hint_reaches_handshake_schema_discover_advise_and_budgets_hold():
             out = _call(registry, cache, action, verbosity=verbosity)
             assert out["hints"], (action, verbosity)
     for action in ("schema", "discover"):
-        assert len(json.dumps(_call(registry, cache, action, verbosity="brief")).encode()) <= BRIEF_BUDGET
+        assert (
+            len(json.dumps(_call(registry, cache, action, verbosity="brief")).encode())
+            <= BRIEF_BUDGET
+        )
     assert len(json.dumps(_call(registry, cache, "schema", verbosity="terse")).encode()) <= 1500
     assert len(json.dumps(_call(registry, cache, "discover", verbosity="terse")).encode()) <= 1500
     adv = _call(registry, cache, "advise", {"domain": "reason", "action": "solve",

@@ -12,8 +12,9 @@ tokens' codes.
 Honest limits of this "lite" variant (documented, not hidden): the update is the ``p = 2`` form of
 the energy-based rule (the published FlyVec uses a higher ``p`` and ~400 units on a web-scale
 corpus); the vocabulary, the sample count and the epochs are hard-capped, so on a small knowledge
-base it learns co-occurrence inside a triple (``subject relation object``), nothing more. Words never
-seen in training (typos, new words) have no code: unlike character n-grams the encoder does not
+base it learns co-occurrence inside a triple (``subject relation object``), nothing more. Words
+never seen in training (typos, new words) have no code: unlike character n-grams the encoder
+does not
 generalise to them. Deterministic for a given seed.
 """
 

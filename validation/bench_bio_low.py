@@ -58,7 +58,9 @@ def _noise(data: AliasDataset) -> list[Op]:
 def _typo(item: AliasItem) -> str:
     """The plain question with one letter dropped from the entity name's first word."""
     first = item.entity.split()[0]
-    return plain_question(item).replace(item.entity, item.entity.replace(first, first[:2] + first[3:]))
+    return plain_question(item).replace(
+        item.entity, item.entity.replace(first, first[:2] + first[3:])
+    )
 
 
 def _hit_rate(run: _BioRun, queries: list[tuple[str, str]], k: int, **extra: Any) -> float:
@@ -138,12 +140,6 @@ def _l2(data: AliasDataset, k: int) -> dict[str, dict[str, float]]:
     return out
 
 
-def _timed(fn: Any) -> tuple[float, float]:
-    start = time.perf_counter()
-    value = fn()
-    return value, (time.perf_counter() - start) * 1000.0
-
-
 def _l3(data: AliasDataset, k: int) -> dict[str, dict[str, float]]:
     out: dict[str, dict[str, float]] = {}
     with tempfile.TemporaryDirectory() as tmp:
@@ -153,11 +149,12 @@ def _l3(data: AliasDataset, k: int) -> dict[str, dict[str, float]]:
             arms.update({f"sdm_r{r}": {"mode": "sdm", "radius": r} for r in SDM_RADII})
             for name, extra in arms.items():
                 alias_q, plain_q = _alias_queries(data.set_a), _plain_queries(data.items)
-                alias, ms = _timed(lambda e=extra: _hit_rate(run, alias_q, k, **e))
-                plain, _ = _timed(lambda e=extra: _hit_rate(run, plain_q, k, **e))
+                start = time.perf_counter()
+                alias = _hit_rate(run, alias_q, k, **extra)
+                ms = (time.perf_counter() - start) * 1000.0
                 out[name] = {
                     "alias_recall": alias,
-                    "plain_recall": plain,
+                    "plain_recall": _hit_rate(run, plain_q, k, **extra),
                     "ms_per_alias_query": round(ms / len(alias_q), 3),
                 }
         finally:

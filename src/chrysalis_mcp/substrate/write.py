@@ -214,20 +214,10 @@ def _tag(conn: sqlite3.Connection, node_id: int, kc_ids: Sequence[int]) -> None:
     )
 
 
-def protected_clause(window: int | None, nodes: Sequence[int]) -> tuple[str, list[Any]]:
-    """SQL predicate (over the ``assoc`` table) of the associations captured to long-term memory.
-
-    Captured = tagged within the last ``window`` updates, or belonging to a confirmed node.
-    Clause ``0`` when capture is off. Only fixed text is interpolated; values are bound.
-    """
-    if window is None:
-        return "0", []
-    clause = (
-        "(EXISTS (SELECT 1 FROM assoc_tags t WHERE t.kc = assoc.kc AND t.node_id = assoc.node_id "
-        "AND t.tag > (SELECT COALESCE(CAST(value AS INTEGER), 0) FROM meta WHERE key = ?) - ?) "
-        "OR assoc.node_id IN (SELECT value FROM json_each(?)))"
-    )
-    return clause, [TAG_CLOCK_KEY, window, json.dumps(sorted(set(nodes)))]
+def protect_args(window: int | None, nodes: Sequence[int]) -> tuple[Any, ...]:
+    """Bound values of the capture predicate (see ``SqliteWrite.decay_assoc``): off = all false."""
+    on = window is not None
+    return (int(on), TAG_CLOCK_KEY, window or 0, json.dumps(sorted(set(nodes)) if on else []))
 
 
 class SqliteWrite:
@@ -463,7 +453,7 @@ class SqliteWrite:
         append-only and is never pruned.
         """
         replayed = 0
-        keep, keep_args = protected_clause(capture_window, capture_nodes)
+        keep = protect_args(capture_window, capture_nodes)
         with self._db.transaction() as conn:
             for kc_ids, node_id, delta in replay or ():
                 kcs = sorted(set(kc_ids))
@@ -483,23 +473,45 @@ class SqliteWrite:
                 replayed += 1
             if node_factors is None:
                 decayed = conn.execute(
-                    f"UPDATE assoc SET weight = weight * ? WHERE NOT {keep}", (decay, *keep_args)
+                    "UPDATE assoc SET weight = weight * ? WHERE NOT "
+                    "(( ? = 1 AND EXISTS (SELECT 1 FROM assoc_tags t WHERE t.kc = assoc.kc "
+                    "AND t.node_id = assoc.node_id AND t.tag > "
+                    "COALESCE((SELECT CAST(value AS INTEGER) FROM meta WHERE key = ?), 0) "
+                    "- ?)) "
+                    "OR assoc.node_id IN (SELECT value FROM json_each(?)))",
+                    (decay, *keep),
                 ).rowcount
             else:
                 decayed = 0
                 for node_id, factor in node_factors.items():
                     decayed += conn.execute(
-                        f"UPDATE assoc SET weight = weight * ? WHERE node_id = ? AND NOT {keep}",
-                        (factor, node_id, *keep_args),
+                        "UPDATE assoc SET weight = weight * ? WHERE node_id = ? AND NOT "
+                        "(( ? = 1 AND EXISTS (SELECT 1 FROM assoc_tags t WHERE t.kc = assoc.kc "
+                        "AND t.node_id = assoc.node_id AND t.tag > "
+                        "COALESCE((SELECT CAST(value AS INTEGER) FROM meta WHERE key = ?), 0) "
+                        "- ?)) "
+                        "OR assoc.node_id IN (SELECT value FROM json_each(?)))",
+                        (factor, node_id, *keep),
                     ).rowcount
                 rest = decay if default_factor is None else default_factor
                 decayed += conn.execute(
                     "UPDATE assoc SET weight = weight * ? WHERE node_id NOT IN "
-                    f"(SELECT value FROM json_each(?)) AND NOT {keep}",
-                    (rest, json.dumps(list(node_factors)), *keep_args),
+                    "(SELECT value FROM json_each(?)) AND NOT "
+                    "(( ? = 1 AND EXISTS (SELECT 1 FROM assoc_tags t WHERE t.kc = assoc.kc "
+                    "AND t.node_id = assoc.node_id AND t.tag > "
+                    "COALESCE((SELECT CAST(value AS INTEGER) FROM meta WHERE key = ?), 0) "
+                    "- ?)) "
+                    "OR assoc.node_id IN (SELECT value FROM json_each(?)))",
+                    (rest, json.dumps(list(node_factors)), *keep),
                 ).rowcount
             pruned = conn.execute(
-                f"DELETE FROM assoc WHERE abs(weight) < ? AND NOT {keep}", (prune_below, *keep_args)
+                "DELETE FROM assoc WHERE abs(weight) < ? AND NOT "
+                "(( ? = 1 AND EXISTS (SELECT 1 FROM assoc_tags t WHERE t.kc = assoc.kc "
+                "AND t.node_id = assoc.node_id AND t.tag > "
+                "COALESCE((SELECT CAST(value AS INTEGER) FROM meta WHERE key = ?), 0) "
+                "- ?)) "
+                "OR assoc.node_id IN (SELECT value FROM json_each(?)))",
+                (prune_below, *keep),
             ).rowcount
             conn.execute(  # tags follow assoc
                 "DELETE FROM assoc_tags WHERE NOT EXISTS (SELECT 1 FROM assoc a "
