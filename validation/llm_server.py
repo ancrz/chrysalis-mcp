@@ -63,6 +63,14 @@ class Config:
     cpu_quota: str = "1200%"
     nice: int = 10
     est_gpu_mib: int = 4096  # non-expert weights + KV(ctx) on the iGPU: conservative, never assumed
+    # Server slots (``-np``). 1 = current behavior. With N > 1 the server runs N requests at once
+    # (continuous batching, on by default). The KV pool is split evenly across slots in this build
+    # (b12110: ``--kv-unified`` is only the default when ``-np`` is auto), so ``server_argv`` emits
+    # ``-c ctx * N``: every slot keeps the profile's ``ctx`` as its own window.
+    parallel: int = 1
+    # KV cache MiB added per extra slot (``parallel - 1``) on top of ``est_gpu_mib``, which already
+    # holds one slot's KV at ``ctx``. Conservative per-profile figure (see ``total_est_gpu_mib``).
+    est_kv_mib_per_slot: int = 512
     est_ram_mib: int = 15360  # expert weights (mmap, page cache) + buffers
     gtt_margin_mib: int = 4096  # must remain free in GTT after the server's footprint
     ram_margin_mib: int = 6144  # must remain available in RAM after the server's footprint
@@ -74,6 +82,16 @@ class Config:
     memory_profile: str = "minimal"  # "minimal": --no-host --no-repack | "fast": neither
     sysfs: Path | None = None  # drm device dir; None = auto-detect
     meminfo: Path = Path("/proc/meminfo")
+
+    @property
+    def server_ctx(self) -> int:
+        """Value passed as ``-c``: total KV pool = per-slot window x slots (see ``parallel``)."""
+        return self.ctx * self.parallel
+
+    @property
+    def total_est_gpu_mib(self) -> int:
+        """Admission estimate: single-slot footprint plus the KV of every extra slot."""
+        return self.est_gpu_mib + (self.parallel - 1) * self.est_kv_mib_per_slot
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None, profile: str | None = None) -> Config:
@@ -89,6 +107,9 @@ class Config:
             for k, v in cls.__dataclass_fields__.items()
         }
         sysfs = e.get("CHRYSALIS_SYSFS_DRM")
+        parallel = _env_int(e, "CHRYSALIS_LLM_PARALLEL", d["parallel"].default)
+        if parallel < 1:
+            raise ValueError(f"CHRYSALIS_LLM_PARALLEL must be >= 1, got {parallel}")
         return cls(
             binary=Path(
                 e.get(
@@ -104,6 +125,10 @@ class Config:
             ),
             port=_env_int(e, "CHRYSALIS_LLM_PORT", d["port"].default),
             ctx=_env_int(e, "CHRYSALIS_LLM_CTX", d["ctx"].default),
+            parallel=parallel,
+            est_kv_mib_per_slot=_env_int(
+                e, "CHRYSALIS_LLM_EST_KV_MIB_PER_SLOT", d["est_kv_mib_per_slot"].default
+            ),
             threads=_env_int(e, "CHRYSALIS_LLM_THREADS", d["threads"].default),
             est_gpu_mib=_env_int(e, "CHRYSALIS_LLM_EST_GPU_MIB", d["est_gpu_mib"].default),
             est_ram_mib=_env_int(e, "CHRYSALIS_LLM_EST_RAM_MIB", d["est_ram_mib"].default),
@@ -124,6 +149,8 @@ PROFILES: dict[str, dict[str, Any]] = {
         "alias": "gemma-4-e4b",
         "ctx": 8192,
         "est_gpu_mib": 6144,
+        "parallel": 1,  # opt-in: CHRYSALIS_LLM_PARALLEL=N
+        "est_kv_mib_per_slot": 512,
         "est_ram_mib": 2048,
         "threads": 6,
         "ram_margin_mib": 4096,
@@ -134,6 +161,8 @@ PROFILES: dict[str, dict[str, Any]] = {
         "alias": "qwen3.5-4b",
         "ctx": 8192,
         "est_gpu_mib": 5120,
+        "parallel": 1,  # opt-in: CHRYSALIS_LLM_PARALLEL=N
+        "est_kv_mib_per_slot": 512,
         "est_ram_mib": 2048,
         "threads": 6,
         "ram_margin_mib": 4096,
@@ -215,9 +244,10 @@ def read_resources(cfg: Config) -> Resources:
 def admit(res: Resources, cfg: Config) -> Decision:
     """Admit only if, after the server's estimated footprint, both margins still hold."""
     reasons = list(res.problems)
-    if res.gtt_free_mib is not None and res.gtt_free_mib - cfg.est_gpu_mib < cfg.gtt_margin_mib:
+    est_gpu = cfg.total_est_gpu_mib
+    if res.gtt_free_mib is not None and res.gtt_free_mib - est_gpu < cfg.gtt_margin_mib:
         reasons.append(
-            f"GTT free {res.gtt_free_mib} MiB - est {cfg.est_gpu_mib} < margin {cfg.gtt_margin_mib}"
+            f"GTT free {res.gtt_free_mib} MiB - est {est_gpu} < margin {cfg.gtt_margin_mib}"
         )
     if res.ram_available_mib is not None and (
         res.ram_available_mib - cfg.est_ram_mib < cfg.ram_margin_mib
@@ -267,7 +297,8 @@ def server_argv(cfg: Config) -> list[str]:
         "-ngl",
         "99",
         "-c",
-        str(cfg.ctx),
+        str(cfg.server_ctx),
+        *(["-np", str(cfg.parallel)] if cfg.parallel > 1 else []),
         "--fit",
         "on",
         "--fit-target",

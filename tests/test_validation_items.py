@@ -43,6 +43,7 @@ def test_arm_summary_keeps_one_record_per_item_with_truncated_answers():
         "tag": "hard",
         "correct": True,
         "status": "OK",
+        "finish_reason": None,
         "actions": [],
         "answer": "yes",
         "prompt_tokens": 11,

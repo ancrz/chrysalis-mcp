@@ -21,7 +21,9 @@ mode and group into ``llm.json`` so arms can be run in separate invocations.
 
 import argparse
 import asyncio
+import contextvars
 import json
+import math
 import os
 import random
 import tempfile
@@ -46,6 +48,7 @@ from validation.datasets import (
     score_puzzle,
     score_puzzle_values,
     score_qa,
+    score_qa_lenient,
 )
 from validation.llm_client import LlmClient
 
@@ -96,6 +99,53 @@ MODES: dict[str, dict[str, Any]] = {
     "off": {"thinking": False, "max_tokens": 512, "timeout_s": 120.0},
     "on": {"thinking": True, "max_tokens": 2048, "timeout_s": 300.0},
 }
+ENV_CONCURRENCY = "CHRYSALIS_EVAL_CONCURRENCY"
+ENV_MAX_TOKENS = {"on": "CHRYSALIS_EVAL_MAX_TOKENS_ON", "off": "CHRYSALIS_EVAL_MAX_TOKENS_OFF"}
+ENV_TIMEOUT = {"on": "CHRYSALIS_EVAL_TIMEOUT_ON", "off": "CHRYSALIS_EVAL_TIMEOUT_OFF"}
+# Items of one arm in flight at once (set by ``_eval``; contextvars are inherited by asyncio tasks,
+# so the ~15 ``_arm`` call sites need no extra parameter). 1 = the original sequential loop.
+ARM_CONCURRENCY: contextvars.ContextVar[int] = contextvars.ContextVar("arm_concurrency", default=1)
+
+
+def _env_positive_int(name: str) -> int | None:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 0
+    if value < 1:
+        raise ValueError(f"{name} must be a positive integer, got {raw!r}")
+    return value
+
+
+def _env_positive_float(name: str) -> float | None:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except ValueError:
+        value = 0.0
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{name} must be a positive number of seconds, got {raw!r}")
+    return value
+
+
+def concurrency_from_env() -> int:
+    return _env_positive_int(ENV_CONCURRENCY) or 1
+
+
+def mode_config(mode: str) -> dict[str, Any]:
+    """``MODES[mode]`` with ``max_tokens`` / ``timeout_s`` overridable by
+    CHRYSALIS_EVAL_MAX_TOKENS_ON/_OFF and CHRYSALIS_EVAL_TIMEOUT_ON/_OFF."""
+    cfg = dict(MODES[mode])
+    cfg["max_tokens"] = _env_positive_int(ENV_MAX_TOKENS[mode]) or cfg["max_tokens"]
+    cfg["timeout_s"] = _env_positive_float(ENV_TIMEOUT[mode]) or cfg["timeout_s"]
+    return cfg
+
+
 SYS_QA = "Answer with ONLY the answer phrase, no sentence."
 SYS_QA_MEM = (
     SYS_QA + " Facts live in the `chrysalis` memory tool: call domain='memory', action='recall' "
@@ -205,6 +255,7 @@ def _items(
     correct: list[bool],
     tags: list[str] | None,
     values: list[bool] | None = None,
+    lenient: list[bool] | None = None,
 ) -> list[dict[str, Any]]:
     """Per-item record: what the model answered, which actions it took, what it cost."""
     out = []
@@ -214,8 +265,10 @@ def _items(
             item["tag"] = tags[i]
         item.update(
             correct=bool(correct[i]),
+            **({"correct_lenient": bool(lenient[i])} if lenient else {}),
             **({"values_correct": bool(values[i])} if values else {}),
             status=run["status"],
+            finish_reason=run.get("finish_reason"),
             actions=list(run.get("actions", [])),
             answer=(run.get("answer") or "")[:ANSWER_MAX_CHARS],
             prompt_tokens=run["metrics"]["llm_prompt_tokens"],
@@ -230,6 +283,7 @@ def _summarize(
     correct: list[bool],
     tags: list[str] | None = None,
     values: list[bool] | None = None,
+    lenient: list[bool] | None = None,
 ) -> dict[str, Any]:
     n = len(runs)
     sums = {k: sum(r["metrics"][k] for r in runs) for k in runs[0]["metrics"]} if runs else {}
@@ -237,6 +291,10 @@ def _summarize(
         "n": n,
         "accuracy": round(sum(correct) / n, 4) if n else None,
         **({"values_accuracy": round(sum(values) / n, 4)} if values and n else {}),
+        # QA arms only: strict OR (integer gold and exactly one equal number in the answer)
+        **({"accuracy_lenient": round(sum(lenient) / n, 4)} if lenient and n else {}),
+        # share of items whose completion hit max_tokens (answer possibly cut, not wrong per se)
+        "truncated_rate": _rate(runs, lambda r: r.get("finish_reason") == "length"),
         "statuses": sorted({r["status"] for r in runs}),
         "mean_prompt_tokens": round(sums.get("llm_prompt_tokens", 0) / n, 1) if n else None,
         "mean_completion_tokens": round(sums.get("llm_completion_tokens", 0) / n, 1) if n else None,
@@ -252,7 +310,7 @@ def _summarize(
             runs, lambda r: bool(r.get("actions")) and r["actions"][0] == "meta.handshake"
         ),
         **({"by_subset": _by_subset(runs, correct, tags)} if tags else {}),
-        "items": _items(runs, correct, tags, values),
+        "items": _items(runs, correct, tags, values, lenient),
     }
 
 
@@ -268,8 +326,22 @@ async def _arm(
     declare: dict[str, Any] | None = None,
     tags: list[str] | None = None,
     values_score: Callable[[str | None, Any], bool] | None = None,
+    lenient_score: Callable[[str | None, Any], bool] | None = None,
+    concurrency: int | None = None,
 ) -> dict[str, Any]:
-    runs, correct, values = [], [], []
+    """One arm. ``concurrency`` (default: the ``ARM_CONCURRENCY`` context value) items run at once.
+
+    Seeding and the handshake happen once, before any item. Results keep item order. After the
+    first UNREACHABLE the not-yet-started items are skipped and the arm is cut at that item,
+    exactly as the sequential loop stops. One shared ``ChrysalisSession`` serves all workers: its
+    ``call`` is serialized by a lock, so the shared db is never touched concurrently.
+    """
+    runs: list[dict[str, Any]] = []
+    golds: list[Any] = []
+    correct: list[bool] = []
+    values: list[bool] = []
+    lenient: list[bool] = []
+    width = max(1, concurrency or ARM_CONCURRENCY.get())
     async with ChrysalisSession(db) as cs:
         if seed:
             await seed(cs)
@@ -280,17 +352,41 @@ async def _arm(
             )
             prompt_hint = shake.get("prompt_hint", "")
         sys_prompt = system(prompt_hint) if callable(system) else system
-        for question, gold in items:
-            run = await run_agent(
-                llm, question, cs if tool else None, system=sys_prompt, max_tokens=max_tokens
-            )
-            runs.append(run)
-            correct.append(run["status"] == "OK" and score(run["answer"], gold))
-            if values_score:  # diagnostic on the FULL answer (before ANSWER_MAX_CHARS truncation)
-                values.append(run["status"] == "OK" and values_score(run["answer"], gold))
-            if run["status"] == "UNREACHABLE":
+        gate = asyncio.Semaphore(width)
+        down = asyncio.Event()  # set by the first UNREACHABLE
+
+        async def one(question: str) -> dict[str, Any] | None:
+            async with gate:
+                if down.is_set():
+                    return None
+                run = await run_agent(
+                    llm, question, cs if tool else None, system=sys_prompt, max_tokens=max_tokens
+                )
+                if run["status"] == "UNREACHABLE":
+                    down.set()
+                return run
+
+        outcomes = await asyncio.gather(*(one(q) for q, _ in items))
+        for (_, gold), run in zip(items, outcomes, strict=True):
+            if run is None:
                 break
-    summary = _summarize(runs, correct, tags, values if values_score else None)
+            runs.append(run)
+            golds.append(gold)
+            if run["status"] == "UNREACHABLE":
+                break  # same cut as the sequential loop; later finished items are discarded
+    for run, gold in zip(runs, golds, strict=True):
+        correct.append(run["status"] == "OK" and score(run["answer"], gold))
+        if values_score:  # diagnostic on the FULL answer (before ANSWER_MAX_CHARS truncation)
+            values.append(run["status"] == "OK" and values_score(run["answer"], gold))
+        if lenient_score:
+            lenient.append(run["status"] == "OK" and lenient_score(run["answer"], gold))
+    summary = _summarize(
+        runs,
+        correct,
+        tags,
+        values if values_score else None,
+        lenient if lenient_score else None,
+    )
     # arm flag: the advised arm injected the handshake's prompt_hint into its system prompt
     return {**summary, "prompt_hint_used": bool(prompt_hint)} if declare else summary
 
@@ -366,7 +462,9 @@ async def _scale_group(llm: LlmClient, mt: int, limit: int | None, tmp: str) -> 
 
     qa = [(i.question, i.answer) for i in items]
     system = SYS_QA_CTX.format(facts="\n".join(kept))
-    ctx_arm = await _arm(llm, qa, system, False, score_qa, None, None, mt)
+    ctx_arm = await _arm(
+        llm, qa, system, False, score_qa, None, None, mt, lenient_score=score_qa_lenient
+    )
     ctx_arm.update(
         total_facts=len(data.facts),
         facts_in_context=len(kept),
@@ -374,7 +472,9 @@ async def _scale_group(llm: LlmClient, mt: int, limit: int | None, tmp: str) -> 
         answerable_in_context=answerable_in(tuple(items), kept),
     )
     db = str(Path(tmp) / "scale.db")
-    mem_arm = await _arm(llm, qa, SYS_QA_MEM, True, score_qa, db, seed_all, mt)
+    mem_arm = await _arm(
+        llm, qa, SYS_QA_MEM, True, score_qa, db, seed_all, mt, lenient_score=score_qa_lenient
+    )
     return {"context": ctx_arm, "memory": mem_arm}
 
 
@@ -394,7 +494,9 @@ async def _hbe2e_group(llm: LlmClient, mt: int, limit: int | None, tmp: str) -> 
                     raise RuntimeError(f"hbe2e {arm} {action} failed: {out.get('error')}")
 
         db = str(Path(tmp) / f"hbe2e_{arm}_{int(llm.thinking)}.db")  # fresh per mode
-        arms[arm] = await _arm(llm, qa, SYS_QA_MEM, True, score_qa, db, seed, mt)
+        arms[arm] = await _arm(
+            llm, qa, SYS_QA_MEM, True, score_qa, db, seed, mt, lenient_score=score_qa_lenient
+        )
     return arms
 
 
@@ -419,12 +521,28 @@ async def _group(
     if name == "ha":
         db = str(Path(tmp) / "eval.db")
         return {
-            "alone": await _arm(client, qa, SYS_QA, False, score_qa, None, None, mt),
-            "memory": await _arm(client, qa, SYS_QA_MEM, True, score_qa, db, seed_facts, mt),
+            "alone": await _arm(
+                client, qa, SYS_QA, False, score_qa, None, None, mt, lenient_score=score_qa_lenient
+            ),
+            "memory": await _arm(
+                client,
+                qa,
+                SYS_QA_MEM,
+                True,
+                score_qa,
+                db,
+                seed_facts,
+                mt,
+                lenient_score=score_qa_lenient,
+            ),
         }
     if name == "ctx":
         system = SYS_QA_CTX.format(facts=context_facts())
-        return {"context": await _arm(client, qa, system, False, score_qa, None, None, mt)}
+        return {
+            "context": await _arm(
+                client, qa, system, False, score_qa, None, None, mt, lenient_score=score_qa_lenient
+            )
+        }
     if name == "hc":
         return {
             "alone": await _arm(client, pz, SYS_PZ, False, score_puzzle, None, None, mt),
@@ -532,13 +650,15 @@ async def _eval(
     limit: int | None,
     params_b: float,
     active_params_b: float | None = None,
+    concurrency: int = 1,
 ) -> dict[str, Any]:
     results: dict[str, dict[str, Any]] = {}
+    ARM_CONCURRENCY.set(concurrency)
     with tempfile.TemporaryDirectory() as tmp:
         for mode in modes:
-            cfg = MODES[mode]
+            cfg = mode_config(mode)
             client = llm.derive(cfg["thinking"], cfg["timeout_s"])
-            results[mode] = {"config": dict(cfg)}
+            results[mode] = {"config": {**cfg, "concurrency": concurrency}}
             for g in groups:
                 if g in LONG_GROUPS and mode not in HA_MODES:
                     continue
@@ -554,8 +674,10 @@ def run(
     modes: tuple[str, ...] = tuple(MODES),
     limit: int | None = None,
     params_b: float | None = None,
+    concurrency: int | None = None,
 ) -> dict[str, Any]:
     llm = llm or LlmClient()
+    concurrency = concurrency or concurrency_from_env()
     active_params_b: float | None = None
     if params_b is None:
         params_b, active_params_b = params_b_for(llm.model)
@@ -573,7 +695,7 @@ def run(
     }
     if not llm.available():
         return {**base, "status": "UNREACHABLE", "data": {}}
-    results = asyncio.run(_eval(llm, groups, modes, limit, params_b, active_params_b))
+    results = asyncio.run(_eval(llm, groups, modes, limit, params_b, active_params_b, concurrency))
     primary = results[modes[0]]
     data = {
         k: v
@@ -603,11 +725,26 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--thinking", choices=("off", "on", "both"), default="both")
     ap.add_argument("--limit", type=int, default=None, help="items per dataset (smoke runs)")
     ap.add_argument("--params-b", type=float, default=None, help="default: from the served model")
+    ap.add_argument(
+        "--concurrency",
+        type=int,
+        default=None,
+        help=f"items of an arm in flight at once (env {ENV_CONCURRENCY}; default 1). Match the "
+        "server's CHRYSALIS_LLM_PARALLEL slots",
+    )
     args = ap.parse_args(argv)
+    if args.concurrency is not None and args.concurrency < 1:
+        ap.error("--concurrency must be >= 1")
     groups = ALL_GROUPS if args.hyp == "all" else tuple(g.strip() for g in args.hyp.split(","))
     modes = tuple(MODES) if args.thinking == "both" else (args.thinking,)
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    result = run(groups=groups, modes=modes, limit=args.limit, params_b=args.params_b)
+    result = run(
+        groups=groups,
+        modes=modes,
+        limit=args.limit,
+        params_b=args.params_b,
+        concurrency=args.concurrency,
+    )
     path = RESULTS_DIR / RESULT_FILE
     old = json.loads(path.read_text()) if path.exists() else None
     if result.get("status") != "OK" and old and old.get("status") == "OK":

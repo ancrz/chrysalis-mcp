@@ -9,6 +9,7 @@ import json
 import random
 import re
 from dataclasses import dataclass
+from decimal import Decimal
 
 from chrysalis_mcp.core.task_features import CHARS_PER_TOKEN
 
@@ -697,6 +698,24 @@ def score_qa(answer: str | None, gold: str) -> bool:
         return False
     got = re.sub(r"^(the|a|an)\s+", "", normalize(answer))
     return got == re.sub(r"^(the|a|an)\s+", "", normalize(gold))
+
+
+# one number: optional sign, thousands groups ("4,290") or plain digits, optional decimals
+_NUMBER = re.compile(r"(?<![\w.])-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?!\d)")
+_INTEGER_GOLD = re.compile(r"-?\d+")
+
+
+def score_qa_lenient(answer: str | None, gold: str) -> bool:
+    """``score_qa`` OR a numeric tolerance: an integer gold matches an answer holding exactly one
+    number (commas allowed) equal to it, so "4290 meters" passes but "4290 or 2166" does not.
+    Diagnostic companion of the strict score, never a replacement."""
+    if score_qa(answer, gold):
+        return True
+    gold_text = str(gold).strip().replace(",", "")
+    if not answer or not _INTEGER_GOLD.fullmatch(gold_text):
+        return False
+    found = _NUMBER.findall(answer)
+    return len(found) == 1 and Decimal(found[0].replace(",", "")) == Decimal(gold_text)
 
 
 def score_puzzle(answer: str | None, gold: dict[str, int]) -> bool:

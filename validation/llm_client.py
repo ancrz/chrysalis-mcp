@@ -91,7 +91,9 @@ class LlmClient:
             return {"status": "ERROR", "error": f"HTTP {resp.status_code}", "body": resp.text[:300]}
         try:
             data = resp.json()
-            message = dict(data["choices"][0]["message"])
+            choice = data["choices"][0]
+            message = dict(choice["message"])
+            finish_reason = choice.get("finish_reason")
             # Reasoning is measured, then dropped: it must never re-enter the conversation.
             reasoning = message.pop("reasoning_content", None)
             usage = data.get("usage") or {}
@@ -103,6 +105,8 @@ class LlmClient:
                     "completion_tokens": int(usage.get("completion_tokens", 0)),
                 },
                 "reasoning_chars": len(reasoning) if isinstance(reasoning, str) else 0,
+                # "stop" | "length" (max_tokens hit: answer cut) | "tool_calls" | None if absent
+                "finish_reason": finish_reason if isinstance(finish_reason, str) else None,
             }
         except (ValueError, KeyError, IndexError, TypeError) as exc:
             return {"status": "ERROR", "error": f"malformed response: {type(exc).__name__}"}

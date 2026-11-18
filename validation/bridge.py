@@ -1,5 +1,6 @@
 """Gemma <-> Chrysalis agent loop over real stdio MCP (official client)."""
 
+import asyncio
 import json
 import os
 import sys
@@ -31,6 +32,9 @@ class ChrysalisSession:
         )
         self._stack = AsyncExitStack()
         self._session: ClientSession | None = None
+        # One stdio server process per session: tool calls from concurrent eval workers are
+        # serialized here (they are fast); the model calls are what must overlap.
+        self._call_lock = asyncio.Lock()
         self.tool_def: dict[str, Any] = {}
         self.instructions: str = ""  # server ``instructions`` from the initialize result
 
@@ -53,7 +57,8 @@ class ChrysalisSession:
 
     async def call(self, /, **args: Any) -> str:
         assert self._session is not None
-        res = await self._session.call_tool(TOOL_NAME, args)
+        async with self._call_lock:
+            res = await self._session.call_tool(TOOL_NAME, args)
         return "".join(getattr(c, "text", "") for c in res.content)
 
     async def openai_tool(self) -> dict[str, Any]:
@@ -113,6 +118,7 @@ async def run_agent(
     """
     metrics = _new_metrics()
     actions: list[str] = []  # "domain.action" of every well-formed call, in order
+    finish_reason: str | None = None  # "length" if any step hit max_tokens, else the last reason
     started = time.perf_counter()
     tools = [await chrysalis.openai_tool()] if chrysalis else None
     messages: list[dict[str, Any]] = ([{"role": "system", "content": system}] if system else []) + [
@@ -126,16 +132,20 @@ async def run_agent(
             "answer": answer,
             "metrics": metrics,
             "actions": actions,
+            "finish_reason": finish_reason,
             **extra,
         }
 
     for _ in range(max_steps):
-        reply = llm.chat(
-            messages, tools=tools, **({"max_tokens": max_tokens} if max_tokens else {})
+        # llm.chat is a blocking HTTP call: run it in a thread so concurrent items overlap
+        reply = await asyncio.to_thread(
+            llm.chat, messages, tools=tools, **({"max_tokens": max_tokens} if max_tokens else {})
         )
         metrics["llm_calls"] += 1
         if reply["status"] != "OK":
             return done(reply["status"], error=reply.get("error"))
+        if finish_reason != "length":
+            finish_reason = reply.get("finish_reason")
         metrics["llm_prompt_tokens"] += reply["usage"]["prompt_tokens"]
         metrics["llm_completion_tokens"] += reply["usage"]["completion_tokens"]
         metrics["reasoning_chars"] += reply.get("reasoning_chars", 0)

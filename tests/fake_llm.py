@@ -8,13 +8,20 @@ from typing import Any
 
 
 def reply_text(
-    text: str, prompt: int = 10, completion: int = 5, reasoning: str | None = None
+    text: str,
+    prompt: int = 10,
+    completion: int = 5,
+    reasoning: str | None = None,
+    finish_reason: str | None = None,
 ) -> dict[str, Any]:
     message: dict[str, Any] = {"role": "assistant", "content": text}
     if reasoning is not None:
         message["reasoning_content"] = reasoning
+    choice: dict[str, Any] = {"message": message}
+    if finish_reason is not None:
+        choice["finish_reason"] = finish_reason
     return {
-        "choices": [{"message": message}],
+        "choices": [choice],
         "usage": {"prompt_tokens": prompt, "completion_tokens": completion},
     }
 

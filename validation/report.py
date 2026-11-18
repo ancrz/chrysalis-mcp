@@ -470,6 +470,8 @@ def render(results_dir: Path = RESULTS_DIR) -> str:
                 v["mean_tool_calls"],
                 v.get("reason_use_rate", "-"),
                 v.get("values_accuracy", "-"),
+                v.get("accuracy_lenient", "-"),
+                v.get("truncated_rate", "-"),
             ]
             for h, arms in _llm_rows(llm)
             for arm, v in arms.items()
@@ -488,6 +490,8 @@ def render(results_dir: Path = RESULTS_DIR) -> str:
                     "tool calls/q",
                     "reason use",
                     "values acc (diagnostic, format-lenient)",
+                    "acc lenient (QA, numeric tolerance)",
+                    "truncated (finish=length)",
                 ],
                 rows,
             ),
