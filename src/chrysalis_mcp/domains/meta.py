@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from ..core import task_features, version
+from ..core import bio_defaults, task_features, version
 from ..core.advisory import render_prompt_hint
 from ..core.batch import MAX_STEPS, RETURN_MODES, run_batch
 from ..core.envelope import VERBOSITIES
@@ -105,6 +105,7 @@ def _schema(params: Params, ctx: Context) -> Payload:
     return {
         "status": "OK",
         "summary": f"{len(schema['domains'])} domains registered",
+        "bio_defaults": bio_defaults.profile(),
         **schema,
         **_load_error(ctx),
         "verbosity": list(VERBOSITIES),
@@ -121,6 +122,7 @@ def _schema(params: Params, ctx: Context) -> Payload:
         "terse": _with_rules(
             {
                 "domains": {d: _terse_actions(d, a) for d, a in schema["domains"].items()},
+                "bio_defaults": bio_defaults.profile(),
                 "advisories": non_neutral,
                 **_load_error(ctx),
             },
@@ -164,13 +166,22 @@ def _handshake(params: Params, ctx: Context) -> Payload:
         "status": "OK",
         "summary": f"profile {view['source']}: class={view['class']}",
         "profile": view,
+        "bio_defaults": bio_defaults.profile(),
         "advisories": advisories,
         **_rule_fields(rules, hints),
         **_prompt_hint_field(hints, ctx),
         # prompt_hint stays out of brief/terse: those views clip strings (256/64 chars) and a
         # clipped hint cannot be pasted into a system prompt; they carry 'hints' instead.
         "brief": _with_rules({"profile": view, "advisories": non_neutral}, rules, hints),
-        "terse": _with_rules({"class": view["class"], "advisories": non_neutral}, rules, hints),
+        "terse": _with_rules(
+            {
+                "class": view["class"],
+                "bio_defaults": bio_defaults.profile(),
+                "advisories": non_neutral,
+            },
+            rules,
+            hints,
+        ),
         "next_action": "Optionally run meta.calibrate to self-assess competence per capability.",
     }
 
@@ -273,11 +284,13 @@ def _discover(params: Params, ctx: Context) -> Payload:
         "summary": f"{len(domains)} domain(s)" + (", STALE process" if stale else ""),
         "domains": domains,
         "profile": profile,
+        "bio_defaults": bio_defaults.profile(),
         **_rule_fields(rules, hints),
         **stamp,
         "terse": {
             "domains": {d: _terse_actions(d, a) for d, a in domains.items()},
             "advisories": non_neutral,
+            "bio_defaults": bio_defaults.profile(),
             **_rule_fields(rules, hints),
             **_load_error(ctx),
             "loaded_commit": stamp["loaded_commit"],

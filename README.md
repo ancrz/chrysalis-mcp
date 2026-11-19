@@ -230,6 +230,8 @@ Environment variables:
 | `CHRYSALIS_DB` | SQLite path. Default `$XDG_DATA_HOME/chrysalis/substrate.db`, else `~/.local/share/chrysalis/substrate.db`. |
 | `CHRYSALIS_MODEL_PROFILE` | Force the model profile for every session (overrides any handshake). |
 | `CHRYSALIS_ENFORCE_ADVISORY` | `1` makes a `discouraged` advisory block the call unless `params.override` is `true`. Default: advisory only. |
+| `CHRYSALIS_BIO_DEFAULTS` | `off` (default) or `all`. `all` turns the opt-in memory bio features on when the caller omits the param (recall `track_usage`, `inhibition=adaptive`, `encoder=flyvec` if a FlyVec model exists; consolidate `replay`, `usage_weighting`, `capture`; ingest retrains FlyVec up to 5000 nodes). Explicit params win. Reported as `bio_defaults` in `meta.schema`/`handshake`/`discover`. |
+| `CHRYSALIS_EVAL_FEEDBACK` | Eval harness only: `1` makes the advised arm send `meta.feedback` after each item so `meta.advise` learns during the run (default `0`). |
 
 The server does not load `.env` files. [`.env.example`](.env.example) lists every variable (server,
 validation harness, optional local llama.cpp launcher) with its default; copy it to `.env`, uncomment

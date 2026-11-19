@@ -21,16 +21,19 @@ mode and group into ``llm.json`` so arms can be run in separate invocations.
 
 import argparse
 import asyncio
+import contextlib
 import contextvars
 import json
 import math
 import os
 import random
 import tempfile
-from collections.abc import Awaitable, Callable
+import time
+from collections.abc import Awaitable, Callable, Iterator
 from pathlib import Path
 from typing import Any
 
+from chrysalis_mcp.core import task_features
 from validation import RESULTS_DIR
 from validation.bench_hb_e2e import ARMS as HBE2E_BASE_ARMS
 from validation.bench_hb_e2e import prepare_ops
@@ -101,6 +104,11 @@ MODES: dict[str, dict[str, Any]] = {
     "on": {"thinking": True, "max_tokens": 2048, "timeout_s": 300.0},
 }
 ENV_CONCURRENCY = "CHRYSALIS_EVAL_CONCURRENCY"
+ENV_FEEDBACK = "CHRYSALIS_EVAL_FEEDBACK"
+ENV_ADVICE_DB = "CHRYSALIS_ADVICE_DB"
+ENV_BIO_DEFAULTS = "CHRYSALIS_BIO_DEFAULTS"
+FEEDBACK_ACTION = "reason.solve"  # what the advised arm's advice concerns (hard puzzles)
+ADVICE_STATS_ROWS = 50  # rows kept in the compact meta.advice_stats snapshot
 ENV_MAX_TOKENS = {"on": "CHRYSALIS_EVAL_MAX_TOKENS_ON", "off": "CHRYSALIS_EVAL_MAX_TOKENS_OFF"}
 ENV_TIMEOUT = {"on": "CHRYSALIS_EVAL_TIMEOUT_ON", "off": "CHRYSALIS_EVAL_TIMEOUT_OFF"}
 # Items of one arm in flight at once (set by ``_eval``; contextvars are inherited by asyncio tasks,
@@ -132,6 +140,15 @@ def _env_positive_float(name: str) -> float | None:
     if not math.isfinite(value) or value <= 0:
         raise ValueError(f"{name} must be a positive number of seconds, got {raw!r}")
     return value
+
+
+def feedback_enabled() -> bool:
+    """``CHRYSALIS_EVAL_FEEDBACK=1``: the advised arm reports each outcome via meta.feedback."""
+    return os.environ.get(ENV_FEEDBACK, "0").strip() == "1"
+
+
+def bio_defaults_all() -> bool:
+    return os.environ.get(ENV_BIO_DEFAULTS, "off").strip().lower() == "all"
 
 
 def concurrency_from_env() -> int:
@@ -329,6 +346,7 @@ async def _arm(
     values_score: Callable[[str | None, Any], bool] | None = None,
     lenient_score: Callable[[str | None, Any], bool] | None = None,
     concurrency: int | None = None,
+    features: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """One arm. ``concurrency`` (default: the ``ARM_CONCURRENCY`` context value) items run at once.
 
@@ -336,6 +354,12 @@ async def _arm(
     first UNREACHABLE the not-yet-started items are skipped and the arm is cut at that item,
     exactly as the sequential loop stops. One shared ``ChrysalisSession`` serves all workers: its
     ``call`` is serialized by a lock, so the shared db is never touched concurrently.
+
+    Closed loop (``declare`` and ``features`` given, ``CHRYSALIS_EVAL_FEEDBACK=1``): when an item
+    ends, the harness sends meta.feedback (``used`` = the model called the solver, the item's task
+    features, outcome from its score) through the same session, so meta.advise learns during the
+    run. Items finish in a nondeterministic order when concurrent, so the order in which the
+    evidence accrues is too; the totals are not.
     """
     runs: list[dict[str, Any]] = []
     golds: list[Any] = []
@@ -343,6 +367,9 @@ async def _arm(
     values: list[bool] = []
     lenient: list[bool] = []
     width = max(1, concurrency or ARM_CONCURRENCY.get())
+    loop = bool(declare and features and feedback_enabled())
+    sent = 0
+    snapshot: dict[str, Any] | None = None
     async with ChrysalisSession(db) as cs:
         if seed:
             await seed(cs)
@@ -356,7 +383,8 @@ async def _arm(
         gate = asyncio.Semaphore(width)
         down = asyncio.Event()  # set by the first UNREACHABLE
 
-        async def one(question: str) -> dict[str, Any] | None:
+        async def one(index: int, question: str, gold: Any) -> dict[str, Any] | None:
+            nonlocal sent
             async with gate:
                 if down.is_set():
                     return None
@@ -365,9 +393,33 @@ async def _arm(
                 )
                 if run["status"] == "UNREACHABLE":
                     down.set()
+                elif loop:
+                    won = run["status"] == "OK" and score(run["answer"], gold)
+                    reply = json.loads(
+                        await cs.call(
+                            domain="meta",
+                            action="feedback",
+                            params={
+                                "action": FEEDBACK_ACTION,
+                                "used": any(a in REASON_ACTIONS for a in run.get("actions", [])),
+                                "task": (features or [])[index],
+                                "outcome": "success" if won else "failure",
+                            },
+                        )
+                    )
+                    sent += reply.get("status") == "OK"
                 return run
 
-        outcomes = await asyncio.gather(*(one(q) for q, _ in items))
+        outcomes = await asyncio.gather(*(one(i, q, g) for i, (q, g) in enumerate(items)))
+        if loop:
+            stats = json.loads(
+                await cs.call(
+                    domain="meta",
+                    action="advice_stats",
+                    params={"action": FEEDBACK_ACTION, "limit": ADVICE_STATS_ROWS},
+                )
+            )
+            snapshot = {k: stats.get(k) for k in ("model", "total", "rows", "truncated")}
         for (_, gold), run in zip(items, outcomes, strict=True):
             if run is None:
                 break
@@ -389,7 +441,12 @@ async def _arm(
         lenient if lenient_score else None,
     )
     # arm flag: the advised arm injected the handshake's prompt_hint into its system prompt
-    return {**summary, "prompt_hint_used": bool(prompt_hint)} if declare else summary
+    if not declare:
+        return summary
+    extra: dict[str, Any] = {"prompt_hint_used": bool(prompt_hint)}
+    if loop:
+        extra |= {"feedback_sent": sent, "advice_stats": snapshot}
+    return {**summary, **extra}
 
 
 def probe_prompt(probes: list[dict[str, str]]) -> str:
@@ -493,12 +550,25 @@ async def _hbe2e_group(llm: LlmClient, mt: int, limit: int | None, tmp: str) -> 
                 out = json.loads(await cs.call(domain="memory", action=action, params=params))
                 if out.get("status") != "OK":
                     raise RuntimeError(f"hbe2e {arm} {action} failed: {out.get('error')}")
+            if bio_defaults_all() and arm != "no_learn":
+                # learning phase over, test phase next: one sleep consolidation (the server fills
+                # replay/usage_weighting/capture from CHRYSALIS_BIO_DEFAULTS=all)
+                out = json.loads(await cs.call(domain="memory", action="consolidate", params={}))
+                if out.get("status") != "OK":
+                    raise RuntimeError(f"hbe2e {arm} consolidate failed: {out.get('error')}")
 
         db = str(Path(tmp) / f"hbe2e_{arm}_{int(llm.thinking)}.db")  # fresh per mode
         arms[arm] = await _arm(
             llm, qa, SYS_QA_MEM, True, score_qa, db, seed, mt, lenient_score=score_qa_lenient
         )
     return arms
+
+
+def _features(puzzle: Any) -> dict[str, Any]:
+    """The task features meta.advise would compute for the puzzle's reference reason.solve call."""
+    return task_features.derive(
+        task_features.extract(FEEDBACK_ACTION, {"constraints": puzzle.constraints})
+    )
 
 
 async def _group(
@@ -580,6 +650,7 @@ async def _group(
         }
     if name == "adv":
         who = identity(client, params_b, active_params_b=active_params_b)
+        adv_features = [_features(p) for p in cut(list(HARD_PUZZLES))]
         arm = await _arm(
             client,
             hard,
@@ -591,6 +662,7 @@ async def _group(
             mt,
             who,
             values_score=score_puzzle_values,
+            features=adv_features,
         )
         return {"advised": {**arm, "in_sample": True}}  # thresholds were fitted on HARD_PUZZLES
     if name == "heldout":
@@ -600,6 +672,7 @@ async def _group(
             cut([(p.text, p.answer) for p in HELDOUT_EASY]),
         )
         items, tags = [*hh, *he], ["hard"] * len(hh) + ["easy"] * len(he)
+        held_features = [_features(p) for p in (*cut(list(HELDOUT_HARD)), *cut(list(HELDOUT_EASY)))]
         return {
             "alone": await _arm(
                 client,
@@ -635,6 +708,7 @@ async def _group(
                 who,
                 tags,
                 values_score=score_puzzle_values,
+                features=held_features,
             ),
         }
     if name == "cal":
@@ -642,6 +716,25 @@ async def _group(
             client, mt, identity(client, params_b, active_params_b=active_params_b)
         )
     raise ValueError(f"unknown group {name!r}")
+
+
+@contextlib.contextmanager
+def _advice_db_scope() -> Iterator[None]:
+    """Keep the learned advice of this run under the results dir, never in the user's real db.
+
+    Unless ``CHRYSALIS_ADVICE_DB`` is already set, point it at a fresh per-run file so runs (and
+    models) cannot contaminate each other; the stdio servers inherit the environment.
+    """
+    if os.environ.get(ENV_ADVICE_DB):
+        yield
+        return
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = f"{time.strftime('%Y%m%d_%H%M%S')}_{os.getpid()}"
+    os.environ[ENV_ADVICE_DB] = str(RESULTS_DIR / f"advice_{stamp}.db")
+    try:
+        yield
+    finally:
+        os.environ.pop(ENV_ADVICE_DB, None)
 
 
 async def _eval(
@@ -655,11 +748,18 @@ async def _eval(
 ) -> dict[str, Any]:
     results: dict[str, dict[str, Any]] = {}
     ARM_CONCURRENCY.set(concurrency)
-    with tempfile.TemporaryDirectory() as tmp:
+    with _advice_db_scope(), tempfile.TemporaryDirectory() as tmp:
         for mode in modes:
             cfg = mode_config(mode)
             client = llm.derive(cfg["thinking"], cfg["timeout_s"])
-            results[mode] = {"config": {**cfg, "concurrency": concurrency}}
+            results[mode] = {
+                "config": {
+                    **cfg,
+                    "concurrency": concurrency,
+                    "bio_defaults": "all" if bio_defaults_all() else "off",
+                    "feedback": feedback_enabled(),
+                }
+            }
             for g in groups:
                 if g in LONG_GROUPS and mode not in HA_MODES:
                     continue

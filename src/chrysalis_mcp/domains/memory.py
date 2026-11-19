@@ -68,6 +68,7 @@ from typing import Any
 import numpy as np
 
 from ..algorithms import FlyHash, features, flyvec, personalized_pagerank
+from ..core import bio_defaults
 from ..core.registry import Context, Params, Payload, Registry
 from ..substrate import BackupError, open_substrate
 
@@ -347,9 +348,11 @@ def _ingest(params: Params, ctx: Context) -> Payload:
     nodes_added = len(result.nodes) - len(result.preexisting)
     codes_added = len(result.coded)
     ignored = [text for text in vectors if text not in result.coded]
+    auto = _auto_flyvec(st, ctx)
     return {
         "status": "OK",
         "summary": f"{len(triples)} edges, {nodes_added} new nodes, {codes_added} codes",
+        **auto,
         "nodes_added": nodes_added,
         "edges_added": result.edges,
         "codes_added": codes_added,
@@ -357,6 +360,23 @@ def _ingest(params: Params, ctx: Context) -> Payload:
         "embeddings_ignored": ignored,
         "terse": {"edges_added": result.edges},
     }
+
+
+def _auto_flyvec(st: _State, ctx: Context) -> Payload:
+    """``CHRYSALIS_BIO_DEFAULTS=all``: (re)train FlyVec after an ingest, bounded by node count.
+
+    Cost: ``flyvec.train`` runs 5 epochs over up to FLYVEC_MAX_EDGES edges and re-encodes every
+    node, on every ingest call; hence the AUTO_FLYVEC_MAX_NODES cap (larger KBs are skipped).
+    """
+    if bio_defaults.profile() != "all":
+        return {}
+    nodes = st.read.counts()["nodes"]
+    if nodes > bio_defaults.AUTO_FLYVEC_MAX_NODES:
+        return {"auto_flyvec": f"skipped: {nodes} nodes > {bio_defaults.AUTO_FLYVEC_MAX_NODES}"}
+    out = _flyvec_train({}, ctx)
+    if out.get("status") != "OK":
+        return {"auto_flyvec": f"skipped: {out.get('error', 'train failed')}"}
+    return {"auto_flyvec": "trained", "flyvec_nodes_encoded": out["terse"]["nodes_encoded"]}
 
 
 def _int_param(params: Params, name: str, default: int, lo: int, hi: int) -> int | str:
@@ -463,6 +483,15 @@ def _seed_scores(
 
 
 def _recall(params: Params, ctx: Context) -> Payload:
+    explicit_encoder = "encoder" in params
+    params = bio_defaults.apply("recall", params)
+    # A default never errors: without a trained model it silently stays on n-grams.
+    if (
+        not explicit_encoder
+        and params.get("encoder") == "flyvec"
+        and _get_state().read.flyvec_info() is None
+    ):
+        params = {**params, "encoder": DEFAULT_ENCODER}
     mode = params.get("mode", DEFAULT_MODE)
     if mode not in RECALL_MODES:
         return _error(f"unknown mode {mode!r}", valid=list(RECALL_MODES))
@@ -885,6 +914,7 @@ def _replay_items(st: _State, rate: float) -> list[tuple[list[int], int, float]]
 
 
 def _consolidate(params: Params, ctx: Context) -> Payload:
+    params = bio_defaults.apply("consolidate", params)
     decay = params.get("decay", 0.9)
     if not _number_ok(decay) or not 0 < decay <= 1:
         return _error("decay must be a number in (0, 1]")
