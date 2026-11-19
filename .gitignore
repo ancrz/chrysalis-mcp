@@ -29,6 +29,8 @@ tmp/
 
 # Salidas de validación (logs de benches y servidor local)
 validation/results/*.log
+# Per-model raw run outputs (local evidence; only the summary JSON/RESULTS.md are published)
+validation/results/*/
 
 # Local-only project documentation and agent configuration (kept on disk, not published)
 docs/
