@@ -1,5 +1,10 @@
 * text=auto eol=lf
 
+# Line endings that must stay LF (sourced by shells / parsed by tools)
+.env.example text eol=lf
+*.sh    text eol=lf
+*.jinja text eol=lf
+
 # Diff drivers
 *.py   diff=python
 *.md   diff=markdown
@@ -14,7 +19,6 @@ uv.lock                     -diff linguist-generated
 validation/results/*.json   linguist-generated
 
 # Documentation
-docs/**                     linguist-documentation
 NOTICE                      linguist-documentation
 LICENSE                     linguist-documentation
 
@@ -23,3 +27,6 @@ LICENSE                     linguist-documentation
 *.png    binary
 *.db     binary
 *.sqlite binary
+*.db-wal binary
+*.db-shm binary
+*.safetensors binary

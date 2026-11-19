@@ -231,6 +231,11 @@ Environment variables:
 | `CHRYSALIS_MODEL_PROFILE` | Force the model profile for every session (overrides any handshake). |
 | `CHRYSALIS_ENFORCE_ADVISORY` | `1` makes a `discouraged` advisory block the call unless `params.override` is `true`. Default: advisory only. |
 
+The server does not load `.env` files. [`.env.example`](.env.example) lists every variable (server,
+validation harness, optional local llama.cpp launcher) with its default; copy it to `.env`, uncomment
+what you need and run `set -a; . ./.env; set +a`, or use the client `env` block shown above (use
+absolute paths there; `~` is not expanded by every client).
+
 Example handshake (first call of a session):
 
 ```json
