@@ -4,6 +4,7 @@ Adapted from the AEP ``aep_ctl`` dispatcher (see NOTICE). Adding a domain is a p
 ``register`` call; ``schema()`` and ``dispatch()`` read the same table, so they cannot drift.
 """
 
+import difflib
 import re
 import time
 from collections.abc import Callable
@@ -34,6 +35,7 @@ class Context:
 
 
 Handler = Callable[[Params, Context], Payload]
+Coercer = Callable[[Params], tuple[Params, list[str]]]
 
 
 @dataclass(frozen=True)
@@ -44,6 +46,8 @@ class ActionSpec:
     params_schema: dict[str, dict[str, Any]]
     description: str
     example: Params
+    coerce: Coercer | None = None  # lenient pre-validation rewrite: (params, notes)
+    alias_of: str | None = None
 
 
 @dataclass
@@ -72,11 +76,38 @@ class Registry:
         params_schema: dict[str, dict[str, Any]] | None = None,
         description: str = "",
         example: Params | None = None,
+        coerce: Coercer | None = None,
+        alias_of: str | None = None,
     ) -> None:
         if action in self._actions.get(domain, {}):
             raise ValueError(f"already registered: {domain}.{action}")
-        spec = ActionSpec(domain, action, handler, params_schema or {}, description, example or {})
+        spec = ActionSpec(
+            domain, action, handler, params_schema or {}, description, example or {}, coerce,
+            alias_of,
+        )  # fmt: skip
         self._actions.setdefault(domain, {})[action] = spec
+
+    def spec(self, domain: str, action: str) -> ActionSpec | None:
+        return self._actions.get(domain, {}).get(action)
+
+    def example_call(self, domain: str, action: str) -> Payload | None:
+        """Full call form of an action's example (what a model should send), or ``None``."""
+        spec = self.spec(domain, action)
+        if spec is None:
+            return None
+        return {"domain": domain, "action": action, "params": spec.example}
+
+    def sole_required_array(self, domain: str, action: str) -> str | None:
+        """Name of the only required array param of an action; ``None`` if zero or several."""
+        spec = self.spec(domain, action)
+        if spec is None:
+            return None
+        names = [
+            n
+            for n, s in spec.params_schema.items()
+            if s.get("required") and s.get("type") == "array"
+        ]
+        return names[0] if len(names) == 1 else None
 
     def domains(self) -> list[str]:
         return sorted(self._actions)
@@ -106,11 +137,14 @@ class Registry:
         if spec is None:
             return _invalid("action", action, self.actions(domain), domain=domain)
         params = params or {}
+        notes: list[str] = []
+        if spec.coerce is not None:
+            params, notes = spec.coerce(params)
         override = False
         if "override" in params and "override" not in spec.params_schema:
             params = dict(params)  # generic advisory escape hatch, not an action param
             override = params.pop("override") is True
-        problem = _check_params(spec, params)
+        problem = _check_params(self, spec, params)
         if problem is not None:
             return problem
         advisory = self._advise(spec, params, ctx)
@@ -138,6 +172,8 @@ class Registry:
             out.setdefault("advisory", advisory)  # non-blocking annotation
         if infer_severity(str(out.get("status", "OK"))) == "ERROR":
             counter.errors += 1
+        if notes:
+            out["coerced"] = [*out.get("coerced", []), *notes]
         return out
 
     def _advise(self, spec: ActionSpec, params: Params, ctx: Context) -> Payload | None:
@@ -203,17 +239,75 @@ def _invalid(kind: str, got: str, valid: list[str], *, domain: str | None = None
     }
 
 
-def _check_params(spec: ActionSpec, params: Params) -> Payload | None:
+# Common small-model spellings of a param -> the real name (applied only if the real name exists).
+SYNONYMS = {
+    "used_tool": "used",
+    "tool_used": "used",
+    "used_tools": "used",
+    "q": "query",
+    "text": "query",
+    "model_name": "model",
+    "relation": "r",
+    "predicate": "r",
+    "subject": "s",
+    "object": "o",
+}
+_TRIPLE_WORDS = {"subject", "predicate", "relation", "object"}
+CLOSE_CUTOFF = 0.6
+
+
+def _did_you_mean(unknown: list[str], known: dict[str, Any]) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for name in unknown:
+        target = SYNONYMS.get(name.lower())
+        if target not in known:
+            close = difflib.get_close_matches(name, list(known), n=1, cutoff=CLOSE_CUTOFF)
+            target = close[0] if close else None
+        if target is not None:
+            out[name] = target
+    return out
+
+
+def _other_action(registry: Registry, spec: ActionSpec, params: Params) -> str | None:
+    """The one other action of the domain whose schema fits ``params`` (aliases collapse)."""
+    if not params:
+        return None
+    fits: dict[str, ActionSpec] = {}
+    for name, cand in registry._actions[spec.domain].items():
+        if name == spec.action or cand.alias_of == spec.action or spec.alias_of == name:
+            continue
+        schema = cand.params_schema
+        if all(p in schema for p in params) and all(
+            n in params for n, s in schema.items() if s.get("required")
+        ):
+            fits[name] = cand
+    for name in list(fits):
+        if fits[name].alias_of in fits:
+            del fits[name]
+    return next(iter(fits)) if len(fits) == 1 else None
+
+
+def _check_params(registry: Registry, spec: ActionSpec, params: Params) -> Payload | None:
     known = spec.params_schema
     missing = [n for n, s in known.items() if s.get("required") and n not in params]
     unknown = [n for n in params if n not in known]
     if not missing and not unknown:
         return None
-    return {
+    out: Payload = {
         "status": "ERROR",
         "error": f"invalid params for {spec.domain}.{spec.action}",
         "missing": missing,
         "unknown": unknown,
         "valid": sorted(known),
-        "next_action": "Fix params per 'valid'/'missing'; see meta.schema.",
+        "example": registry.example_call(spec.domain, spec.action),
+        "next_action": "Fix params per 'valid'/'missing' and copy the shape of 'example'.",
     }
+    if unknown and (guess := _did_you_mean(unknown, known)):
+        out["did_you_mean"] = guess
+    if _TRIPLE_WORDS & set(unknown) and "triples" in known:
+        out["hint"] = "triples items are {s, r, o}: params={'triples': [{'s':..,'r':..,'o':..}]}"
+    other = _other_action(registry, spec, params)
+    if other is not None:
+        out["did_you_mean_action"] = f"{spec.domain}.{other}"
+        out["did_you_mean_example"] = registry.example_call(spec.domain, other)
+    return out

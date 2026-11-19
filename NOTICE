@@ -5,7 +5,7 @@ Portions of src/chrysalis_mcp/core/ are adapted (reverse-engineered, not importe
 agent-execution-plane (Apache License 2.0, same author):
   - engine/telemetry.py   -> core/envelope.py  (request telemetry, severity inference, payload clamping)
   - server.py aep_ctl     -> core/registry.py  (domain/action dispatcher, schema, alternatives)
-  - server.py playbook_run-> core/batch.py     (batched steps, $cache references, field projection)
+  - server.py playbook_run-> core/batch.py     (batched steps, $cache/$prev/$steps references, field projection)
   - engine/ipc_pool.py    -> core/session.py   (session cache semantics: TTL, store_as; in-process only)
 
 Known upstream gaps fixed during extraction: GAP-OM-16 (duplicated nested envelope, mandatory

@@ -143,6 +143,7 @@ async def test_stdio_memory_batch_ingest_recall(tmp_path):
             "ingest",
             "recall",
             "update",
+            "teach",
             "forget",
             "consolidate",
             "restore",

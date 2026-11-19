@@ -1,5 +1,6 @@
 """FastMCP app exposing ONE tool: ``chrysalis(domain, action, ...)``."""
 
+import json
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -43,12 +44,55 @@ def server_instructions(registry: Registry) -> str:
     return f"{INSTRUCTIONS_BASE} {hint}" if hint else INSTRUCTIONS_BASE
 
 
+def _params_error(registry: Registry, domain: str, action: str, error: str) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "status": "ERROR",
+        "error": error,
+        "next_action": "Send params as a JSON object, e.g. copy the shape of 'example'.",
+    }
+    if (example := registry.example_call(domain, action)) is not None:
+        out["example"] = example
+    return out
+
+
+def coerce_params(
+    registry: Registry, domain: str, action: str, params: Any
+) -> tuple[dict[str, Any] | None, str | None, dict[str, Any] | None]:
+    """``(params, note, error)``: small models send params as a JSON string or a bare list."""
+    if params is None or isinstance(params, dict):
+        return params, None, None
+    if isinstance(params, str):
+        if not params.strip():
+            return None, None, None
+        try:
+            decoded = json.loads(params)
+        except ValueError:
+            decoded = None
+        if not isinstance(decoded, dict):
+            return (
+                None,
+                None,
+                _params_error(registry, domain, action, "params string must be a JSON object"),
+            )
+        return decoded, "params_from_json_string", None
+    if isinstance(params, list):
+        key = registry.sole_required_array(domain, action)
+        if key is None:
+            return (
+                None,
+                None,
+                _params_error(registry, domain, action, "params must be an object, not a list"),
+            )
+        return {key: params}, "params_from_list", None
+    return None, None, _params_error(registry, domain, action, "params must be an object")
+
+
 def handle_call(
     registry: Registry,
     cache: SessionCache,
     domain: str,
     action: str,
-    params: dict[str, Any] | None = None,
+    params: dict[str, Any] | str | list[Any] | None = None,
     verbosity: str = "summary",
     session_id: str | None = None,
     store_as: str | None = None,
@@ -74,7 +118,13 @@ def handle_call(
         if store_as is not None and (not store_as.strip() or "." in store_as):
             payload = {"status": "ERROR", "error": "store_as must be non-empty and contain no '.'"}
         else:
-            payload = registry.dispatch(domain, action, params, ctx)
+            fixed, note, bad = coerce_params(registry, domain, action, params)
+            if bad is not None:
+                payload = bad
+            else:
+                payload = registry.dispatch(domain, action, fixed, ctx)
+                if note:
+                    payload["coerced"] = [note, *payload.get("coerced", [])]
             if store_as and str(payload.get("status", "OK")) != "ERROR":
                 cache.put(session_id, store_as.strip(), payload)
     text = build_response(payload, tracker, verbosity=verbosity, telemetry=telemetry)
@@ -93,7 +143,7 @@ def create_app(registry: Registry | None = None, cache: SessionCache | None = No
     def chrysalis(
         domain: str,
         action: str,
-        params: dict[str, Any] | None = None,
+        params: dict[str, Any] | str | list[Any] | None = None,
         verbosity: str = "summary",
         session_id: str | None = None,
         store_as: str | None = None,

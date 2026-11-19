@@ -155,6 +155,7 @@ Call `meta.schema` for the full machine-readable contract, or `meta.discover` fo
 | `memory` | `ingest` | Add knowledge triples (nodes, edges, FlyHash code, dense vector). |
 | `memory` | `recall` | Associative recall: `mode` `ppr` (default) or `seeds`. `ppr` includes the learned boost (`lambda`, on a [0,1] scale via `BOOST_SCALE`); for learned nodes it also returns `learned_as` facts and a `learned` flag. |
 | `memory` | `update` | Reinforce the association between a query and a node; stores up to 3 teach examples per node. |
+| `memory` | `teach` | Alias of `update` (same params), named for small models. |
 | `memory` | `forget` | Soft-invalidate the edges of a `source`. |
 | `memory` | `consolidate` | Decay learned associations and prune weak ones; drops orphan examples. Opt-in `replay` (sleep replay of stored examples, `replay_rate`) and `usage_weighting` (used nodes decay less). |
 | `memory` | `restore` | List or restore verified rotating backups taken before `forget`/`consolidate`. |

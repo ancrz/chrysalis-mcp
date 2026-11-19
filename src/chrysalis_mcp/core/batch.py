@@ -1,4 +1,4 @@
-"""Server-side step chaining with ``$cache`` references and output projection.
+"""Server-side step chaining with ``$cache`` / ``$prev`` / ``$steps`` references and projection.
 
 Adapted from AEP ``playbook_run(action="batch")`` (see NOTICE). Only internal chrysalis steps
 run here: no shell execution. Results of intermediate steps never leave the server unless the
@@ -6,6 +6,7 @@ caller asks for them via ``return_only`` / ``select_fields``.
 """
 
 import re
+from dataclasses import dataclass, field
 from typing import Any
 
 from .envelope import infer_severity
@@ -14,7 +15,8 @@ from .session import MISSING, SessionCache
 
 MAX_STEPS = 25
 RETURN_MODES = ("all", "last", "summary")
-_REF = re.compile(r"^\$cache\.([^.\s]+)((?:\.[^.\s]+)*)$")
+_REF = re.compile(r"^\$(cache|steps)\.([^.\s]+)((?:\.[^.\s]+)*)$")
+_PREV = re.compile(r"^\$prev((?:\.[^.\s]+)*)$")
 
 
 class BatchError(Exception):
@@ -47,23 +49,49 @@ def project_fields(payload: Payload, paths: list[str]) -> Payload:
     return out
 
 
-def _resolve(value: Any, local: dict[str, Any], cache: SessionCache, sid: str | None) -> Any:
-    if isinstance(value, dict):
-        return {k: _resolve(v, local, cache, sid) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_resolve(v, local, cache, sid) for v in value]
-    if not isinstance(value, str) or not (match := _REF.match(value)):
-        return value
-    key, rest = match.group(1), match.group(2)[1:]
-    root = local.get(key, MISSING)
-    if root is MISSING:
-        root = cache.get(sid, key)
-    if root is MISSING:
-        raise BatchError(f"unresolved reference {value!r}: no cache key '{key}'")
+@dataclass
+class _Scope:
+    """What references can see: ``local`` (step ids + store_as), ``by_id`` and ``prev``."""
+
+    cache: SessionCache
+    sid: str | None
+    local: dict[str, Any] = field(default_factory=dict)
+    by_id: dict[str, Any] = field(default_factory=dict)
+    prev: Any = MISSING
+
+
+def _follow(root: Any, rest: str, value: str) -> Any:
     try:
-        return lookup(root, rest) if rest else root
+        return lookup(root, rest[1:]) if rest else root
     except LookupError as exc:
         raise BatchError(f"unresolved reference {value!r}: path not found") from exc
+
+
+def _resolve(value: Any, scope: _Scope) -> Any:
+    if isinstance(value, dict):
+        return {k: _resolve(v, scope) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_resolve(v, scope) for v in value]
+    if not isinstance(value, str):
+        return value
+    if match := _PREV.match(value):
+        if scope.prev is MISSING:
+            raise BatchError(f"unresolved reference {value!r}: no previous successful step")
+        return _follow(scope.prev, match.group(1), value)
+    if not (match := _REF.match(value)):
+        return value
+    kind, key, rest = match.groups()
+    if kind == "steps":
+        root = scope.by_id.get(key, MISSING)
+        if root is MISSING:
+            raise BatchError(f"unresolved reference {value!r}: no successful step '{key}'")
+        return _follow(root, rest, value)
+    root = scope.local.get(key, MISSING)
+    if root is MISSING:
+        root = scope.cache.get(scope.sid, key)
+    if root is MISSING:
+        raise BatchError(f"unresolved reference {value!r}: no cache key '{key}'")
+    return _follow(root, rest, value)
 
 
 def _validate(steps: Any, max_steps: int) -> list[dict[str, Any]]:
@@ -110,12 +138,12 @@ def run_batch(
     except BatchError as exc:
         return _error(str(exc))
 
-    local: dict[str, Any] = {}
+    scope = _Scope(ctx.cache, ctx.session_id)
     results: list[dict[str, Any]] = []
     failed: list[dict[str, Any]] = []
     for step in plan:
         try:
-            params = _resolve(step.get("params") or {}, local, ctx.cache, ctx.session_id)
+            params = _resolve(step.get("params") or {}, scope)
         except BatchError as exc:
             output: Payload = {"status": "ERROR", "error": str(exc)}
         else:
@@ -127,10 +155,12 @@ def run_batch(
             if not continue_on_error:
                 break
             continue
-        local[step["id"]] = output
+        scope.local[step["id"]] = output
+        scope.by_id[step["id"]] = output
+        scope.prev = output
         if step.get("store_as"):
             key = str(step["store_as"]).strip()
-            local[key] = output
+            scope.local[key] = output
             ctx.cache.put(ctx.session_id, key, output)
 
     status = "OK" if not failed else ("PARTIAL" if continue_on_error else "ERROR")

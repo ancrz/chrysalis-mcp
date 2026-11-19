@@ -287,6 +287,38 @@ def _validate_embeddings(
     return out, None
 
 
+_TRIPLE_ALIASES = (
+    ("s", ("subject", "subj")),
+    ("r", ("relation", "predicate", "rel")),
+    ("o", ("object", "obj")),
+)
+
+
+def _coerce_triple(item: Any) -> tuple[Any, bool]:
+    """Small-model triple shapes -> {s, r, o} (3-item lists, subject/predicate/object dicts)."""
+    if isinstance(item, (list, tuple)) and len(item) == 3:
+        return dict(zip(("s", "r", "o"), item, strict=True)), True
+    if not isinstance(item, dict) or all(k in item for k in ("s", "r", "o")):
+        return item, False
+    out, changed = dict(item), False
+    for target, names in _TRIPLE_ALIASES:
+        name = next((n for n in names if n in out), None)
+        if target not in out and name is not None:
+            out[target] = out.pop(name)
+            changed = True
+    return out, changed
+
+
+def _coerce_ingest(params: Params) -> tuple[Params, list[str]]:
+    triples = params.get("triples")
+    if not isinstance(triples, list):
+        return params, []
+    fixed = [_coerce_triple(t) for t in triples]
+    if not any(changed for _, changed in fixed):
+        return params, []
+    return {**params, "triples": [t for t, _ in fixed]}, ["triples_normalized_to_s_r_o"]
+
+
 def _ingest(params: Params, ctx: Context) -> Payload:
     triples, problem = _validate_triples(params["triples"])
     if problem or triples is None:
@@ -1007,6 +1039,7 @@ def register(registry: Registry) -> None:
             "triples": [{"s": "París", "r": "capital_de", "o": "Francia"}],
             "source": "wiki",
         },
+        coerce=_coerce_ingest,
     )
     int_opt = {"type": "integer", "required": False}
     registry.register(
@@ -1088,21 +1121,22 @@ def register(registry: Registry) -> None:
         ),
         example={"query": "paris", "k": 5, "mode": "ppr"},
     )
+    update_schema = {
+        "query": {"type": "string", "required": True},
+        "node": {"type": "string", "required": True},
+        "delta": {
+            "type": "number",
+            "required": False,
+            "min": -MAX_DELTA,
+            "max": MAX_DELTA,
+            "default": 1.0,
+        },
+    }
     registry.register(
         "memory",
         "update",
         _update,
-        params_schema={
-            "query": {"type": "string", "required": True},
-            "node": {"type": "string", "required": True},
-            "delta": {
-                "type": "number",
-                "required": False,
-                "min": -MAX_DELTA,
-                "max": MAX_DELTA,
-                "default": 1.0,
-            },
-        },
+        params_schema=update_schema,
         description=(
             "Reinforce the association between the query's active KCs and a node "
             "(Hebbian-style); later ppr recalls of similar queries rank that node higher. "
@@ -1113,6 +1147,15 @@ def register(registry: Registry) -> None:
             "association for this query removes that example."
         ),
         example={"query": "capital of france", "node": "París", "delta": 1.0},
+    )
+    registry.register(
+        "memory",
+        "teach",
+        _update,
+        params_schema=update_schema,
+        description="Alias of update: teach that a query refers to a node.",
+        example={"query": "capital of france", "node": "París", "delta": 1.0},
+        alias_of="update",
     )
     registry.register(
         "memory",

@@ -390,6 +390,7 @@ def register(registry: Registry) -> None:
             "explore": {"type": "boolean", "required": False},
             "min_n": {"type": "integer", "required": False, "min": 1},
         },
+        coerce=meta_advice.nest_task,
         description=(
             "Advisory level of domain.action for THIS task and the session's model: task is an "
             "object of features (n_vars, n_atoms, goal sat|opt, facts, ctx_tokens). Cheap; "
@@ -431,7 +432,8 @@ def register(registry: Registry) -> None:
             "continue_on_error": {"type": "boolean", "required": False},
         },
         description=(
-            "Chain steps server-side. Refs: '$cache.<key>.<field>' (key = step id or store_as). "
+            "Chain steps server-side. Refs: '$cache.<key>.<field>' (key = step id or store_as), "
+            "'$prev[.<field>]' (last successful step), '$steps.<id>[.<field>]'. "
             "Stops on first error unless continue_on_error. Nested meta.batch is rejected."
         ),
         example={"steps": steps_example, "return_only": "last", "select_fields": ["status"]},

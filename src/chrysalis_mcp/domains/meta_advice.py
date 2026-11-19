@@ -10,6 +10,7 @@ problem with minimize/maximize cannot be judged and is rejected without recordin
 """
 
 import sqlite3
+from dataclasses import replace
 from fractions import Fraction
 from typing import Any
 
@@ -35,6 +36,16 @@ def parse_task(params: Params) -> tuple[dict[str, Any], Payload | None]:
             "valid": list(task_features.FEATURES),
         }
     return dict(task or {}), None
+
+
+def nest_task(params: Params) -> tuple[Params, list[str]]:
+    """Lenient coercion for advise/feedback: top-level task features move into ``task``."""
+    flat = [k for k in task_features.FEATURES if k in params]
+    if not flat or ("task" in params and not isinstance(params["task"], dict)):
+        return params, []
+    rest = {k: v for k, v in params.items() if k not in flat}
+    task = {**(params.get("task") or {}), **{k: params[k] for k in flat}}
+    return {**rest, "task": task}, ["task_features_nested"]
 
 
 def identity(profile: Profile) -> tuple[str, str] | None:
@@ -167,9 +178,9 @@ def derive_outcome(
 
 
 def _feedback(params: Params, ctx: Context) -> Payload:
-    who = identity(ctx.registry.profiles.resolve(ctx.session_id))
-    if who is None:
-        return _err("no model identity for this session", next_action="Call meta.handshake first.")
+    who, implicit, problem = _session_identity(params, ctx)
+    if problem is not None or who is None:
+        return problem or _err("no model identity")
     name, used = params.get("action"), params.get("used")
     known = {f"{d}.{a}" for d, acts in ctx.registry.schema()["domains"].items() for a in acts}
     if not isinstance(name, str) or name not in known or name.startswith("meta."):
@@ -219,6 +230,7 @@ def _feedback(params: Params, ctx: Context) -> Payload:
         min_n=learning.min_n_value(), explore=learning.explore_enabled(),
     )  # fmt: skip
     return {
+        **({"implicit_handshake": True} if implicit else {}),
         "status": "OK",
         "summary": f"{name} {arm} {outcome} recorded for {model} ({bucket})",
         "model": model,
@@ -234,6 +246,42 @@ def _feedback(params: Params, ctx: Context) -> Payload:
     }
 
 
+HANDSHAKE_EXAMPLE = {
+    "domain": "meta",
+    "action": "handshake",
+    "params": {"model": "<your model name>"},
+}
+
+
+def _no_model(what: str) -> Payload:
+    return _err(
+        f"no model: pass model or call meta.handshake first ({what})",
+        example=HANDSHAKE_EXAMPLE,
+        next_action="Send the handshake 'example' once per session, or pass params.model.",
+    )
+
+
+def _session_identity(
+    params: Params, ctx: Context
+) -> tuple[tuple[str, str] | None, bool, Payload | None]:
+    """``(identity, implicit, error)``. Order: the session's declared/forced profile; else the
+    call's own ``model`` (declared for the session as a minimal handshake); else an error."""
+    profile = ctx.registry.profiles.resolve(ctx.session_id)
+    who = identity(profile)
+    if who is not None:
+        return who, False, None
+    given = params.get("model")
+    if given is None:
+        return None, False, _no_model("feedback")
+    key = learning.model_key(given) if isinstance(given, str) else None
+    if key is None:
+        return None, False, _err("model must be a non-empty string")
+    # Only model is declared (no params_b); client stays unset so clientInfo audit is untouched.
+    declared = replace(profile, source="declared", model=given.strip(), scores={}, note=None)
+    ctx.registry.profiles.declare(ctx.session_id, declared)
+    return (key, learning.thinking_key(declared.thinking)), True, None
+
+
 def _target_model(params: Params, ctx: Context) -> tuple[str | None, Payload | None]:
     given = params.get("model")
     if given is not None:
@@ -241,7 +289,7 @@ def _target_model(params: Params, ctx: Context) -> tuple[str | None, Payload | N
         return (key, None) if key else (None, _err("model must be a non-empty string"))
     who = identity(ctx.registry.profiles.resolve(ctx.session_id))
     if who is None:
-        return None, _err("no model: pass model or call meta.handshake first")
+        return None, _no_model("this action")
     return who[0], None
 
 
@@ -304,9 +352,11 @@ def register(registry: Registry) -> None:
             "outcome": {"type": "string", "required": False, "enum": list(learning.OUTCOMES)},
             "problem": {"type": "object", "required": False},
             "assignment": {"type": "object", "required": False},
+            "model": {"type": "string", "required": False},
         },
+        coerce=nest_task,
         description=(
-            "Record one outcome so meta.advise learns per model (needs meta.handshake). 'used': "
+            "Record one outcome so meta.advise learns per model (handshake or 'model'). 'used': "
             "did the model call the tool. Give 'outcome' (success|failure), or 'problem' "
             "({constraints|smt2}) + 'assignment' and the server derives the reward with "
             "reason.check (min/max goals: success only if also optimal, proven by reason.solve). "
