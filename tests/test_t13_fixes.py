@@ -97,7 +97,7 @@ def test_heldout_group_runs_three_arms_and_reports_per_subset_tool_use():
         fake.script = [reply_text(a) for _ in range(3) for a in answers]  # alone, tool, advised
         llm = LlmClient(base_url=fake.url, model="fake", timeout_s=10, thinking=False)
         out = asyncio.run(eval_llm._group("heldout", llm, 64, 1, 4.0, "."))
-    assert set(out) == {"alone", "tool", "advised"}
+    assert set(out) == {"alone", "tool", "advised", "fewshot", "forced", "oracle_ctx"}
     sub = out["advised"]["by_subset"]
     assert set(sub) == {"hard", "easy"} and sub["easy"]["n"] == sub["hard"]["n"] == 1
     assert sub["easy"]["reason_use_rate"] == 0.0 and out["advised"]["accuracy"] == 1.0

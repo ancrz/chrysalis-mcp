@@ -8,7 +8,11 @@ declares the model, the tool description carries the rules), ``cal`` (meta.calib
 HELDOUT_PUZZLES, 8 hard + 8 easy never used to fit thresholds), ``hbe2e`` (H-b end to end: the
 user's invented aliases taught with ``memory.update`` vs an alias triple vs nothing; the harness
 prepares each substrate, interference updates included, then the model answers set-A questions
-with the memory tool). Skips cleanly
+with the memory tool), ``hbio`` (H-bio: 15 independent bio-action steps, each on a fresh
+pre-seeded substrate, N reps; env CHRYSALIS_EVAL_BIO_REPS). ``adv`` and ``heldout`` also run the
+extra advised arms ``fewshot`` (two worked tool-call examples), ``forced`` (tool_choice=required on
+the first step) and ``oracle_ctx`` (UPPER BOUND, not a fair arm: the harness calls the solver
+itself and hands the model the result). Skips cleanly
 (``status: UNREACHABLE``) when the OpenAI-compatible server is down. Results merge per
 mode and group into ``llm.json`` so arms can be run in separate invocations.
 
@@ -17,6 +21,7 @@ mode and group into ``llm.json`` so arms can be run in separate invocations.
     python -m validation.eval_llm --hyp hascale --thinking off
     python -m validation.eval_llm --hyp heldout --thinking both
     python -m validation.eval_llm --hyp hbe2e --thinking both
+    python -m validation.eval_llm --hyp hbio --thinking both
 """
 
 import argparse
@@ -34,7 +39,7 @@ from pathlib import Path
 from typing import Any
 
 from chrysalis_mcp.core import task_features
-from validation import RESULTS_DIR
+from validation import RESULTS_DIR, bio_steps
 from validation.bench_hb_e2e import ARMS as HBE2E_BASE_ARMS
 from validation.bench_hb_e2e import prepare_ops
 from validation.bridge import ChrysalisSession, run_agent
@@ -57,7 +62,7 @@ from validation.llm_client import LlmClient
 
 RESULT_FILE = "llm.json"
 DEFAULT_GROUPS = ("ha", "hc")
-ALL_GROUPS = ("ha", "ctx", "hc", "hard", "adv", "cal", "hascale", "heldout", "hbe2e")
+ALL_GROUPS = ("ha", "ctx", "hc", "hard", "adv", "cal", "hascale", "heldout", "hbe2e", "hbio")
 GROUP_NAMES = {
     "ha": "H-a",
     "ctx": "H-a-ctx",
@@ -68,6 +73,7 @@ GROUP_NAMES = {
     "hascale": "H-a-scale",
     "heldout": "H-adv-heldout",
     "hbe2e": "H-b-e2e",
+    "hbio": "H-bio",
 }
 # the three verdict arms plus an informational alias baseline free of update-interference
 HBE2E_ARMS = (*HBE2E_BASE_ARMS, "alias_ingest_clean")
@@ -206,6 +212,33 @@ SYS_FORMAT_REMINDER = (
 )
 
 
+# Two worked solver calls for the ``fewshot`` arm. Fixed text; the problems are NOT in any eval set
+# (checked by a test) and their models are verified against the real solver by another.
+FEWSHOT_EXAMPLES = (
+    "\n\nWorked examples of the solver call (other problems):\n"
+    "Example 1. Problem: Integers p, q, each between 0 and 30: p + q = 17 and p - q = 5.\n"
+    "Call: chrysalis(domain='reason', action='solve', params={'constraints': {'vars': "
+    "{'p': 'int', 'q': 'int'}, 'assert': ['p >= 0', 'p <= 30', 'q >= 0', 'q <= 30', "
+    "'p + q == 17', 'p - q == 5'], 'goal': 'sat'}})\n"
+    'Result: {"result": "sat", "model": {"p": "11", "q": "6"}}\n'
+    'Final reply: {"p": 11, "q": 6}\n'
+    "Example 2. Problem: Integers m, n, each between 0 and 9: m + n <= 11, m - n >= 2 and n >= 2. "
+    "Maximize m.\n"
+    "Call: chrysalis(domain='reason', action='solve', params={'constraints': {'vars': "
+    "{'m': 'int', 'n': 'int'}, 'assert': ['m >= 0', 'm <= 9', 'n >= 0', 'n <= 9', "
+    "'m + n <= 11', 'm - n >= 2', 'n >= 2'], 'goal': 'max:m'}})\n"
+    'Result: {"result": "sat", "model": {"m": "9", "n": "2"}}\n'
+    'Final reply: {"m": 9, "n": 2}'
+)
+SYS_ORACLE = (
+    SYS_PZ + " A constraint solver already ran on this problem; its result is in the message. "
+    "Answer with the model it returned."
+)
+ORACLE_ARM_NOTE = "UPPER BOUND, not a fair arm: the harness calls reason.solve, not the model"
+ORACLE_KEEP = ("status", "result", "model", "optimum", "objective", "error")  # drop envelope noise
+ORACLE_FIRST_CHOICE = "required"  # tool_choice of the ``forced`` arm's first step
+
+
 def identity(
     llm: LlmClient,
     params_b: float,
@@ -224,12 +257,13 @@ def identity(
     return who
 
 
-def advised_system(who: dict[str, Any], prompt_hint: str = "") -> str:
+def advised_system(who: dict[str, Any], prompt_hint: str = "", examples: str = "") -> str:
     """SYS_HARD_TOOL verbatim (as in the tool arm) + advisory paragraph + ``prompt_hint`` (from
     the handshake response, like a client that injects it) + format reminder last.
 
     The only difference vs the tool arm is the appended advisory part, so H-adv is not
     confounded by prompt layout (a buried format instruction made E4B answer in prose).
+    ``examples`` (the few-shot arm) goes before the format reminder, which stays last.
     """
     active = who.get("active_params_b")
     params_desc = f"{who['params_b']}B" + (f" total, {active}B active" if active else "")
@@ -237,7 +271,7 @@ def advised_system(who: dict[str, Any], prompt_hint: str = "") -> str:
         **who, params_desc=params_desc, thinking_json=json.dumps(who["thinking"])
     )
     hint = f"\n\n{prompt_hint}" if prompt_hint else ""
-    return SYS_HARD_TOOL + advisory + hint + SYS_FORMAT_REMINDER
+    return SYS_HARD_TOOL + advisory + hint + examples + SYS_FORMAT_REMINDER
 
 
 def context_facts() -> str:
@@ -347,6 +381,7 @@ async def _arm(
     lenient_score: Callable[[str | None, Any], bool] | None = None,
     concurrency: int | None = None,
     features: list[dict[str, Any]] | None = None,
+    first_tool_choice: str | None = None,
 ) -> dict[str, Any]:
     """One arm. ``concurrency`` (default: the ``ARM_CONCURRENCY`` context value) items run at once.
 
@@ -359,7 +394,9 @@ async def _arm(
     ends, the harness sends meta.feedback (``used`` = the model called the solver, the item's task
     features, outcome from its score) through the same session, so meta.advise learns during the
     run. Items finish in a nondeterministic order when concurrent, so the order in which the
-    evidence accrues is too; the totals are not.
+    evidence accrues is too; the totals are not. A feedback reply that is not JSON counts as not
+    sent (``feedback_errors``). ``first_tool_choice`` forces ``tool_choice`` on the first model
+    request of every item only (the ``forced`` arm).
     """
     runs: list[dict[str, Any]] = []
     golds: list[Any] = []
@@ -369,6 +406,7 @@ async def _arm(
     width = max(1, concurrency or ARM_CONCURRENCY.get())
     loop = bool(declare and features and feedback_enabled())
     sent = 0
+    feedback_errors = 0
     snapshot: dict[str, Any] | None = None
     async with ChrysalisSession(db) as cs:
         if seed:
@@ -384,42 +422,50 @@ async def _arm(
         down = asyncio.Event()  # set by the first UNREACHABLE
 
         async def one(index: int, question: str, gold: Any) -> dict[str, Any] | None:
-            nonlocal sent
+            nonlocal sent, feedback_errors
             async with gate:
                 if down.is_set():
                     return None
                 run = await run_agent(
-                    llm, question, cs if tool else None, system=sys_prompt, max_tokens=max_tokens
+                    llm,
+                    question,
+                    cs if tool else None,
+                    system=sys_prompt,
+                    max_tokens=max_tokens,
+                    first_tool_choice=first_tool_choice,
                 )
                 if run["status"] == "UNREACHABLE":
                     down.set()
                 elif loop:
                     won = run["status"] == "OK" and score(run["answer"], gold)
-                    reply = json.loads(
-                        await cs.call(
-                            domain="meta",
-                            action="feedback",
-                            params={
-                                "action": FEEDBACK_ACTION,
-                                "used": any(a in REASON_ACTIONS for a in run.get("actions", [])),
-                                "task": (features or [])[index],
-                                "outcome": "success" if won else "failure",
-                            },
-                        )
+                    raw = await cs.call(
+                        domain="meta",
+                        action="feedback",
+                        params={
+                            "action": FEEDBACK_ACTION,
+                            "used": any(a in REASON_ACTIONS for a in run.get("actions", [])),
+                            "task": (features or [])[index],
+                            "outcome": "success" if won else "failure",
+                        },
                     )
-                    sent += reply.get("status") == "OK"
+                    try:
+                        sent += json.loads(raw).get("status") == "OK"
+                    except ValueError, AttributeError:
+                        feedback_errors += 1  # not JSON: counted as not sent, never a crash
                 return run
 
         outcomes = await asyncio.gather(*(one(i, q, g) for i, (q, g) in enumerate(items)))
         if loop:
-            stats = json.loads(
-                await cs.call(
-                    domain="meta",
-                    action="advice_stats",
-                    params={"action": FEEDBACK_ACTION, "limit": ADVICE_STATS_ROWS},
-                )
+            raw_stats = await cs.call(
+                domain="meta",
+                action="advice_stats",
+                params={"action": FEEDBACK_ACTION, "limit": ADVICE_STATS_ROWS},
             )
-            snapshot = {k: stats.get(k) for k in ("model", "total", "rows", "truncated")}
+            try:
+                stats = json.loads(raw_stats)
+                snapshot = {k: stats.get(k) for k in ("model", "total", "rows", "truncated")}
+            except ValueError, AttributeError:
+                snapshot = None
         for (_, gold), run in zip(items, outcomes, strict=True):
             if run is None:
                 break
@@ -445,7 +491,11 @@ async def _arm(
         return summary
     extra: dict[str, Any] = {"prompt_hint_used": bool(prompt_hint)}
     if loop:
-        extra |= {"feedback_sent": sent, "advice_stats": snapshot}
+        extra |= {
+            "feedback_sent": sent,
+            "feedback_errors": feedback_errors,
+            "advice_stats": snapshot,
+        }
     return {**summary, **extra}
 
 
@@ -564,6 +614,159 @@ async def _hbe2e_group(llm: LlmClient, mt: int, limit: int | None, tmp: str) -> 
     return arms
 
 
+async def _oracle_questions(puzzles: list[Any]) -> tuple[list[tuple[str, Any]], int]:
+    """(question + the solver's result, gold) per puzzle; the HARNESS makes the reason.solve call
+    with the item's reference encoding. Also returns how many solver calls came back OK."""
+    out: list[tuple[str, Any]] = []
+    solved = 0
+    async with ChrysalisSession(None) as cs:
+        for p in puzzles:
+            raw = await cs.call(
+                domain="reason", action="solve", params={"constraints": p.constraints}
+            )
+            try:
+                res = json.loads(raw)
+            except ValueError:
+                res = {"status": "ERROR", "error": "solver reply was not JSON"}
+            solved += res.get("status") == "OK"
+            kept = {k: v for k, v in res.items() if k in ORACLE_KEEP}
+            out.append((f"{p.text}\n\nSolver result: {json.dumps(kept)}", p.answer))
+    return out, solved
+
+
+async def _extra_adv_arms(
+    client: LlmClient,
+    puzzles: list[Any],
+    tags: list[str] | None,
+    who: dict[str, Any],
+    mt: int,
+    in_sample: bool,
+) -> dict[str, Any]:
+    """Arms added to the advised groups (same items, same scoring): ``fewshot``, ``forced`` and
+    the ``oracle_ctx`` upper bound. Each is an independent arm over the same puzzles."""
+    items = [(p.text, p.answer) for p in puzzles]
+    feats = [_features(p) for p in puzzles]
+    flag = {"in_sample": True} if in_sample else {}
+    common: dict[str, Any] = {"values_score": score_puzzle_values}
+    fewshot = await _arm(
+        client,
+        items,
+        lambda hint: advised_system(who, hint, FEWSHOT_EXAMPLES),
+        True,
+        score_puzzle,
+        None,
+        None,
+        mt,
+        who,
+        tags,
+        features=feats,
+        **common,
+    )
+    forced = await _arm(
+        client,
+        items,
+        SYS_HARD_TOOL,
+        True,
+        score_puzzle,
+        None,
+        None,
+        mt,
+        tags=tags,
+        first_tool_choice=ORACLE_FIRST_CHOICE,
+        **common,
+    )
+    oracle_items, solved = await _oracle_questions(puzzles)
+    oracle = await _arm(
+        client, oracle_items, SYS_ORACLE, False, score_puzzle, None, None, mt, tags=tags, **common
+    )
+    return {
+        "fewshot": {**fewshot, **flag},
+        "forced": {**forced, "first_tool_choice": ORACLE_FIRST_CHOICE, **flag},
+        "oracle_ctx": {
+            **oracle,
+            "upper_bound": True,
+            "fair": False,
+            "note": ORACLE_ARM_NOTE,
+            "oracle_solved": solved,
+            **flag,
+        },
+    }
+
+
+async def _bio_group(llm: LlmClient, mt: int, limit: int | None, who: dict[str, Any]) -> Any:
+    """H-bio: every (step, rep) is an independent item on its OWN fresh stdio server, kb db and
+    advice db, pre-seeded by the harness; items run ``ARM_CONCURRENCY`` at a time."""
+    steps = bio_steps.STEPS[:limit] if limit else bio_steps.STEPS
+    reps = bio_steps.reps_from_env()
+    width = max(1, ARM_CONCURRENCY.get())
+    gate = asyncio.Semaphore(width)
+    down = asyncio.Event()
+    with tempfile.TemporaryDirectory() as tmp:
+
+        async def one(index: int, step: bio_steps.BioStep, rep: int) -> dict[str, Any] | None:
+            async with gate:
+                if down.is_set():
+                    return None
+                base = Path(tmp) / f"{step.sid}_{rep}_{index}_{int(llm.thinking)}"
+                async with ChrysalisSession(f"{base}.db", f"{base}_advice.db") as cs:
+                    await bio_steps.seed_step(cs, step, who)
+                    calls: list[tuple[dict[str, Any], dict[str, Any]]] = []
+                    real_call = cs.call
+
+                    async def spy(**args: Any) -> str:  # records the MODEL's calls only
+                        text = await real_call(**args)
+                        try:
+                            env = json.loads(text)
+                        except ValueError:
+                            env = {"status": "UNPARSEABLE"}
+                        calls.append((args, env if isinstance(env, dict) else {}))
+                        return text
+
+                    cs.call = spy  # type: ignore[method-assign]
+                    run = await run_agent(
+                        llm,
+                        bio_steps.task_text(step, who),
+                        cs,
+                        system=bio_steps.SYSTEM,
+                        max_steps=bio_steps.BIO_MAX_STEPS,
+                        max_tokens=mt,
+                    )
+                if run["status"] == "UNREACHABLE":
+                    down.set()
+                run["bio"] = {"step": step.sid, "rep": rep, **bio_steps.score_step(calls, step)}
+                return run
+
+        jobs = [one(i * reps + r, step, r) for i, step in enumerate(steps) for r in range(reps)]
+        outcomes = await asyncio.gather(*jobs)
+    runs: list[dict[str, Any]] = []
+    for run in outcomes:
+        if run is None:
+            break
+        runs.append(run)
+        if run["status"] == "UNREACHABLE":
+            break
+    correct = [r["status"] != "UNREACHABLE" and r["bio"]["passed"] for r in runs]
+    tags = [r["bio"]["step"] for r in runs]
+    summary = _summarize(runs, correct, tags)
+    per_step: dict[str, Any] = {}
+    for step in steps:
+        mine = [r["bio"] for r in runs if r["bio"]["step"] == step.sid]
+        if mine:
+            per_step[step.sid] = {
+                "k": sum(b["passed"] for b in mine),
+                "n": len(mine),
+                "called": sum(b["called"] for b in mine),
+                "server_ok": sum(b["server_ok"] for b in mine),
+            }
+    return {
+        **summary,
+        "reps": reps,
+        "per_step": per_step,
+        "total": {"k": sum(correct), "n": len(runs)},
+        "bio_defaults": "all" if bio_defaults_all() else "off",
+    }
+
+
 def _features(puzzle: Any) -> dict[str, Any]:
     """The task features meta.advise would compute for the puzzle's reference reason.solve call."""
     return task_features.derive(
@@ -664,7 +867,9 @@ async def _group(
             values_score=score_puzzle_values,
             features=adv_features,
         )
-        return {"advised": {**arm, "in_sample": True}}  # thresholds were fitted on HARD_PUZZLES
+        extra = await _extra_adv_arms(client, cut(list(HARD_PUZZLES)), None, who, mt, True)
+        # thresholds were fitted on HARD_PUZZLES: every arm of this group is in-sample
+        return {"advised": {**arm, "in_sample": True}, **extra}
     if name == "heldout":
         who = identity(client, params_b, active_params_b=active_params_b)
         hh, he = (
@@ -673,7 +878,8 @@ async def _group(
         )
         items, tags = [*hh, *he], ["hard"] * len(hh) + ["easy"] * len(he)
         held_features = [_features(p) for p in (*cut(list(HELDOUT_HARD)), *cut(list(HELDOUT_EASY)))]
-        return {
+        held_puzzles = [*cut(list(HELDOUT_HARD)), *cut(list(HELDOUT_EASY))]
+        base_arms = {
             "alone": await _arm(
                 client,
                 items,
@@ -711,6 +917,11 @@ async def _group(
                 features=held_features,
             ),
         }
+        extra = await _extra_adv_arms(client, held_puzzles, tags, who, mt, False)
+        return {**base_arms, **extra}
+    if name == "hbio":
+        who = identity(client, params_b, active_params_b=active_params_b)
+        return {"bio": await _bio_group(client, mt, limit, who)}
     if name == "cal":
         return await calibrate_once(
             client, mt, identity(client, params_b, active_params_b=active_params_b)
@@ -758,6 +969,8 @@ async def _eval(
                     "concurrency": concurrency,
                     "bio_defaults": "all" if bio_defaults_all() else "off",
                     "feedback": feedback_enabled(),
+                    "bio_reps": bio_steps.reps_from_env(),
+                    "extra_arms": {"oracle_ctx": ORACLE_ARM_NOTE},
                 }
             }
             for g in groups:

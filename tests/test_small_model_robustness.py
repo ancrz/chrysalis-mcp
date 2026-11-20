@@ -31,11 +31,81 @@ def test_params_blank_string_means_no_params(call):
     assert out["status"] == "OK" and "coerced" not in out
 
 
-@pytest.mark.parametrize("bad", ["[1, 2]", "not json", '"text"', "3"])
+@pytest.mark.parametrize("bad", ["not json", '"text"', "3", "{1: 2}", "__import__('os')", "{1, 2}"])
 def test_params_string_that_is_not_an_object_is_a_structured_error(call, bad):
     out = call("memory", "ingest", params=bad)
     assert out["status"] == "ERROR" and "JSON object" in out["error"]
     assert out["example"]["action"] == "ingest" and out["next_action"]
+
+
+# --- S1: Python-literal params strings and curated auto-renames ---------------------------------
+
+
+def test_params_python_tuple_list_string_is_wrapped_and_ingested(call):
+    text = "[(\"Lumen\", \"is_a\", \"orbital telescope\"), ('Lumen', 'launched_in', '2031')]"
+    out = call("memory", "ingest", params=text)
+    assert out["status"] == "OK" and "params_from_python_literal" in out["coerced"]
+    assert "triples_normalized_to_s_r_o" in out["coerced"]
+
+
+def test_params_python_dict_literal_with_single_quotes_and_booleans(call):
+    out = call("meta", "advice_reset", params="{'action': 'reason.solve', 'confirm': False}")
+    assert "params_from_python_literal" in out.get("coerced", [])
+
+
+def test_params_json_list_string_is_wrapped(call):
+    out = call("memory", "ingest", params=json.dumps([TRIPLE]))
+    assert out["status"] == "OK" and out["coerced"] == ["params_from_json_string"]
+
+
+def test_params_literal_is_size_capped_and_never_evaluates_code(call):
+    huge = "[" + "('a','b','c'),".ljust(70_000, " ") + "]"
+    assert call("memory", "ingest", params=huge)["status"] == "ERROR"
+    out = call("memory", "ingest", params="[__import__('os').getcwd()]")
+    assert out["status"] == "ERROR" and "JSON object" in out["error"]
+    deep = "[" * 5000 + "]" * 5000
+    assert call("memory", "ingest", params=deep)["status"] == "ERROR"
+
+
+def test_unambiguous_synonym_is_renamed_and_noted(call):
+    out = call(
+        "meta",
+        "feedback",
+        params={"model": "m", "action": "reason.solve", "used_tool": True, "outcome": "success"},
+    )
+    assert out["status"] == "OK" and "renamed: used_tool->used" in out["coerced"]
+
+
+def test_rename_skipped_when_target_present_or_unknown(call):
+    out = call(
+        "meta",
+        "feedback",
+        params={
+            "model": "m",
+            "action": "reason.solve",
+            "used": True,
+            "used_tool": False,
+            "outcome": "success",
+        },
+    )
+    assert out["status"] == "ERROR" and out["unknown"] == ["used_tool"]
+    out = call("memory", "recall", params={"query": "x", "used_tool": True})  # no `used` param
+    assert out["status"] == "ERROR" and "used_tool" in out["unknown"]
+
+
+def test_feature_synonym_is_renamed_flat_and_nested(call):
+    out = call("meta", "advise", params={"domain": "reason", "action": "solve", "n_variables": 4})
+    assert out["status"] == "OK" and "renamed: n_variables->n_vars" in out["coerced"]
+    out = call(
+        "meta", "advise", params={"domain": "reason", "action": "solve", "task": {"n_variables": 4}}
+    )
+    assert out["status"] == "OK" and "renamed: task.n_variables->task.n_vars" in out["coerced"]
+
+
+def test_free_form_advise_names_stay_errors_with_example(call):
+    out = call("meta", "advise", params={"task_description": "x", "tool_suggestion": "y"})
+    assert out["status"] == "ERROR" and out["example"]["action"] == "advise"
+    assert "renamed" not in json.dumps(out.get("coerced", []))
 
 
 def test_params_list_wraps_into_sole_required_array(call):
@@ -64,9 +134,9 @@ def test_mcp_input_schema_accepts_object_string_list_null():
 
 
 def test_param_error_carries_example_and_synonym_and_close_match(call):
-    out = call("meta", "feedback", params={"action": "reason.solve", "used_tool": True})
+    out = call("meta", "feedback", params={"action": "reason.solve", "usd": True})
     assert out["status"] == "ERROR"
-    assert out["did_you_mean"] == {"used_tool": "used"}
+    assert out["did_you_mean"] == {"usd": "used"}
     assert out["example"]["action"] == "feedback" and "params" in out["example"]
     out = call("memory", "update", params={"query": "q", "node": "n", "delt": 1})
     assert out["did_you_mean"] == {"delt": "delta"}
@@ -288,3 +358,17 @@ def test_cache_references_still_work(call):
         ],
     )
     assert out["status"] == "OK"
+
+
+@pytest.mark.parametrize("bad", ["[" * 100_000, "[" + " " * 70_000 + "]", "x" * 70_000])
+def test_oversized_or_deep_params_string_is_an_error_envelope(call, bad):
+    from chrysalis_mcp.core.registry import Registry  # noqa: F401
+    from chrysalis_mcp.core.session import SessionCache
+    from chrysalis_mcp.domains import build_registry
+    from chrysalis_mcp.server import coerce_params, decode_params_string, handle_call
+
+    assert decode_params_string(bad) == (None, None)
+    _, _, err = coerce_params(build_registry(), "memory", "ingest", bad)
+    assert err["status"] == "ERROR" and err["example"]["action"] == "ingest" and err["next_action"]
+    out = json.loads(handle_call(build_registry(), SessionCache(), "memory", "ingest", bad))
+    assert out["status"] == "ERROR" and out["example"] and out["next_action"]

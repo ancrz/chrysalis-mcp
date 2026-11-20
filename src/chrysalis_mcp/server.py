@@ -1,5 +1,6 @@
 """FastMCP app exposing ONE tool: ``chrysalis(domain, action, ...)``."""
 
+import ast
 import json
 from typing import Any
 
@@ -55,26 +56,67 @@ def _params_error(registry: Registry, domain: str, action: str, error: str) -> d
     return out
 
 
+PY_LITERAL_MAX_CHARS = 64 * 1024  # size cap before ast.literal_eval (also bounds its recursion)
+
+
+def _jsonable(value: Any) -> Any:
+    """Python literal -> JSON-shaped value (tuples become lists); ``ValueError`` otherwise."""
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(v) for v in value]
+    if isinstance(value, dict):
+        if not all(isinstance(k, str) for k in value):
+            raise ValueError("non-string key")
+        return {k: _jsonable(v) for k, v in value.items()}
+    raise ValueError(f"unsupported literal {type(value).__name__}")
+
+
+def decode_params_string(text: str) -> tuple[Any, str | None]:
+    """``(value, note)``: JSON first, then a Python literal (tuples, single quotes, True/None).
+
+    ``ast.literal_eval`` only evaluates literals (no names, calls or attributes) and the input is
+    size-capped. ``(None, None)`` when neither parses to an object or list.
+    """
+    if len(text) > PY_LITERAL_MAX_CHARS:  # cap BEFORE any parser: json.loads recurses too
+        return None, None
+    try:
+        decoded = json.loads(text)
+    except (ValueError, RecursionError, MemoryError):  # fmt: skip
+        pass
+    else:
+        if isinstance(decoded, (dict, list)):
+            return decoded, "params_from_json_string"
+        return None, None
+    try:
+        literal = _jsonable(ast.literal_eval(text.strip()))
+    except (ValueError, SyntaxError, TypeError, MemoryError, RecursionError):  # fmt: skip
+        return None, None
+    if isinstance(literal, (dict, list)):
+        return literal, "params_from_python_literal"
+    return None, None
+
+
 def coerce_params(
     registry: Registry, domain: str, action: str, params: Any
 ) -> tuple[dict[str, Any] | None, str | None, dict[str, Any] | None]:
-    """``(params, note, error)``: small models send params as a JSON string or a bare list."""
+    """``(params, note, error)``: small models send params as a JSON/Python-literal string or a
+    bare list (a list is wrapped into the action's sole required array param)."""
     if params is None or isinstance(params, dict):
         return params, None, None
+    note: str | None = None
     if isinstance(params, str):
         if not params.strip():
             return None, None, None
-        try:
-            decoded = json.loads(params)
-        except ValueError:
-            decoded = None
-        if not isinstance(decoded, dict):
+        params, note = decode_params_string(params)
+        if params is None:
             return (
                 None,
                 None,
                 _params_error(registry, domain, action, "params string must be a JSON object"),
             )
-        return decoded, "params_from_json_string", None
+        if isinstance(params, dict):
+            return params, note, None
     if isinstance(params, list):
         key = registry.sole_required_array(domain, action)
         if key is None:
@@ -83,7 +125,7 @@ def coerce_params(
                 None,
                 _params_error(registry, domain, action, "params must be an object, not a list"),
             )
-        return {key: params}, "params_from_list", None
+        return {key: params}, (note or "params_from_list"), None
     return None, None, _params_error(registry, domain, action, "params must be an object")
 
 

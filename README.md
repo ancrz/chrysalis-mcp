@@ -231,7 +231,8 @@ Environment variables:
 | `CHRYSALIS_MODEL_PROFILE` | Force the model profile for every session (overrides any handshake). |
 | `CHRYSALIS_ENFORCE_ADVISORY` | `1` makes a `discouraged` advisory block the call unless `params.override` is `true`. Default: advisory only. |
 | `CHRYSALIS_BIO_DEFAULTS` | `off` (default) or `all`. `all` turns the opt-in memory bio features on when the caller omits the param (recall `track_usage`, `inhibition=adaptive`, `encoder=flyvec` if a FlyVec model exists; consolidate `replay`, `usage_weighting`, `capture`; ingest retrains FlyVec up to 5000 nodes). Explicit params win. Reported as `bio_defaults` in `meta.schema`/`handshake`/`discover`. |
-| `CHRYSALIS_EVAL_FEEDBACK` | Eval harness only: `1` makes the advised arm send `meta.feedback` after each item so `meta.advise` learns during the run (default `0`). |
+| `CHRYSALIS_EVAL_FEEDBACK` | Eval harness only: `1` makes the advised arm send `meta.feedback` after each item so `meta.advise` learns during the run (default `0`). Evidence learned in an arm applies from the NEXT arm of the same run: the advice db is shared across arms (fresh per run), and the hint is read at each arm's handshake. |
+| `CHRYSALIS_EVAL_BIO_REPS` | Eval harness only: repetitions of each of the 15 independent H-bio steps (positive integer, default `3`). |
 
 The server does not load `.env` files. [`.env.example`](.env.example) lists every variable (server,
 validation harness, optional local llama.cpp launcher) with its default; copy it to `.env`, uncomment
@@ -319,7 +320,19 @@ python -m validation.report                     # merge results into a verdict t
 `eval_llm` talks to an OpenAI-compatible endpoint at `CHRYSALIS_LLM_URL`. For local runs,
 `validation/llm_server.py --profile e4b` is a resource-guarded launcher for llama.cpp (admission
 control, RAM caps, watchdog); read its docstring first, since it manages a GPU-backed process.
-Hypothesis groups: `ha`, `ctx`, `hc`, `hard`, `adv`, `cal`, `hascale`, `heldout`, `hbe2e`.
+Hypothesis groups: `ha`, `ctx`, `hc`, `hard`, `adv`, `cal`, `hascale`, `heldout`, `hbe2e`, `hbio`.
+
+Extra arms of `adv` and `heldout` (same items and scoring as `advised`; all run under `--hyp all`):
+`fewshot` (advised prompt plus two worked solver-call examples on problems outside the eval sets),
+`forced` (the tool arm with `tool_choice="required"` on the first model request only) and
+`oracle_ctx`, an **upper bound and not a fair arm**: the harness itself calls `reason.solve` with
+the item's reference encoding and hands the result to a model without tools. `report` marks it
+`[UPPER BOUND, not a fair arm]`. `hbio` (H-bio) is the bio-actions smoke made fair: 15 steps, each
+independent (fresh knowledge base and advice db, prerequisites pre-seeded by the harness), repeated
+`CHRYSALIS_EVAL_BIO_REPS` times, scored per step as target called with its required params and
+server status OK/PARTIAL; it honours `CHRYSALIS_BIO_DEFAULTS` and records it in the run config.
+The advice db is always isolated per run, so feedback learned in one arm shapes the advice that
+later arms read at their handshake.
 
 <p align="right"><a href="#readme-top">back to top</a></p>
 

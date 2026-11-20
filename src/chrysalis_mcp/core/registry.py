@@ -11,6 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from . import task_features
 from .advisory import Advisor, enforce_enabled
 from .envelope import infer_severity
 from .learning import AdviceStore
@@ -137,9 +138,10 @@ class Registry:
         if spec is None:
             return _invalid("action", action, self.actions(domain), domain=domain)
         params = params or {}
-        notes: list[str] = []
+        params, notes = _apply_renames(spec, params)
         if spec.coerce is not None:
-            params, notes = spec.coerce(params)
+            params, more = spec.coerce(params)
+            notes += more
         override = False
         if "override" in params and "override" not in spec.params_schema:
             params = dict(params)  # generic advisory escape hatch, not an action param
@@ -252,8 +254,48 @@ SYNONYMS = {
     "subject": "s",
     "object": "o",
 }
+# Unambiguous misspellings applied automatically (difflib guesses stay suggestions). A rename is
+# applied only if its target is a known param of the action, the target is absent, and the source
+# is listed here; free-form names (task_description, ...) are never guessed.
+AUTO_RENAMES = {
+    "used_tool": "used",
+    "tool_used": "used",
+    "used_tools": "used",
+    "n_variables": "n_vars",
+    "num_variables": "n_vars",
+    "num_vars": "n_vars",
+    "number_of_variables": "n_vars",
+    "model_name": "model",
+}
 _TRIPLE_WORDS = {"subject", "predicate", "relation", "object"}
 CLOSE_CUTOFF = 0.6
+
+
+def _rename_keys(
+    params: Params, accepts: Callable[[str], bool], prefix: str = ""
+) -> tuple[Params, list[str]]:
+    out = dict(params)
+    notes: list[str] = []
+    for name in list(out):
+        target = AUTO_RENAMES.get(name.lower()) if isinstance(name, str) else None
+        if target and name != target and target not in out and accepts(target):
+            out[target] = out.pop(name)
+            notes.append(f"renamed: {prefix}{name}->{prefix}{target}")
+    return out, notes
+
+
+def _apply_renames(spec: ActionSpec, params: Params) -> tuple[Params, list[str]]:
+    """Curated, unambiguous param renames (top level, plus the nested ``task`` features)."""
+    known = spec.params_schema
+    params, notes = _rename_keys(
+        params, lambda t: t in known or (t in task_features.FEATURES and "task" in known)
+    )
+    if "task" in known and isinstance(params.get("task"), dict):
+        task, more = _rename_keys(params["task"], lambda t: t in task_features.FEATURES, "task.")
+        if more:
+            params = {**params, "task": task}
+            notes += more
+    return params, notes
 
 
 def _did_you_mean(unknown: list[str], known: dict[str, Any]) -> dict[str, str]:

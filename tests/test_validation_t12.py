@@ -110,7 +110,7 @@ def test_advised_arm_calls_handshake_first_and_sees_the_advisories():
         fake.script = [reply_tool(handshake), reply_text(json.dumps(puzzle.answer))]
         llm = LlmClient(base_url=fake.url, model="fake", timeout_s=10, thinking=False)
         out = _run(eval_llm._group("adv", llm, 64, 1, 4.0, "."))
-        first, second = fake.requests
+        first, second = fake.requests[:2]  # later requests: fewshot / forced / oracle arms
     arm = out["advised"]
     assert arm["accuracy"] == 1.0
     assert arm["handshake_first_rate"] == 1.0 and arm["reason_use_rate"] == 0.0

@@ -306,6 +306,24 @@ def calibration_rows(llm: dict[str, Any] | None) -> list[list[Any]]:
     return rows
 
 
+def _arm_label(arm: str, data: dict[str, Any]) -> str:
+    """Arm name; an upper-bound arm (oracle) is flagged so it is never read as a fair one."""
+    return f"{arm} [UPPER BOUND, not a fair arm]" if data.get("upper_bound") else arm
+
+
+def bio_rows(llm: dict[str, Any] | None) -> list[list[Any]]:
+    """H-bio per mode and step: passed k/N, plus how many reps called the target / got server OK."""
+    rows: list[list[Any]] = []
+    for mode in ("off", "on"):
+        arm = ((_group(llm, mode, "H-bio") or {}).get("bio")) or {}
+        for step, v in (arm.get("per_step") or {}).items():
+            rows.append([mode, step, f"{v['k']}/{v['n']}", v["called"], v["server_ok"]])
+        if arm.get("total"):
+            t = arm["total"]
+            rows.append([mode, "TOTAL", f"{t['k']}/{t['n']}", "-", "-"])
+    return rows
+
+
 def _llm_rows(llm: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
     rows = []
     for mode in ("off", "on"):
@@ -463,7 +481,7 @@ def render(results_dir: Path = RESULTS_DIR) -> str:
         rows = [
             [
                 h,
-                arm,
+                _arm_label(arm, v),
                 v["accuracy"],
                 v["mean_prompt_tokens"],
                 v["mean_completion_tokens"],
@@ -496,6 +514,14 @@ def render(results_dir: Path = RESULTS_DIR) -> str:
                 rows,
             ),
         ]
+        bio = bio_rows(llm)
+        if bio:
+            out += [
+                "",
+                "## H-bio: bio actions, independent steps on fresh substrates",
+                "",
+                _table(["thinking", "step", "passed k/N", "called", "server OK"], bio),
+            ]
         cal = calibration_rows(llm)
         if cal:
             out += [

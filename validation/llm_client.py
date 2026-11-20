@@ -10,6 +10,7 @@ ENV_MODEL = "CHRYSALIS_LLM_MODEL"
 ENV_THINKING = "CHRYSALIS_LLM_THINKING"  # off (default) | on
 DEFAULT_URL = "http://127.0.0.1:8080/v1"
 DEFAULT_MODEL = "gemma-4-26B-A4B-it-Q4_0"
+TOOL_CHOICES = ("auto", "required", "none")
 DEFAULT_TIMEOUT_S = 180.0
 PROBE_TIMEOUT_S = 3.0
 
@@ -68,9 +69,16 @@ class LlmClient:
         tools: list[dict[str, Any]] | None = None,
         max_tokens: int = 1024,
         temperature: float = 0.0,
+        tool_choice: str | None = None,
     ) -> dict[str, Any]:
         """``{"status":"OK","message":{...},"usage":{prompt_tokens,completion_tokens}}`` or a
-        structured ``UNREACHABLE`` / ``ERROR`` result (never an exception)."""
+        structured ``UNREACHABLE`` / ``ERROR`` result (never an exception).
+
+        ``tool_choice`` ("auto" | "required" | "none", sent only together with ``tools``) is passed
+        through to /chat/completions; ``None`` leaves the field out (server default, "auto").
+        """
+        if tool_choice is not None and tool_choice not in TOOL_CHOICES:
+            raise ValueError(f"tool_choice must be one of {TOOL_CHOICES}, got {tool_choice!r}")
         body: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
@@ -81,6 +89,8 @@ class LlmClient:
             body["chat_template_kwargs"] = {"enable_thinking": False}
         if tools:
             body["tools"] = tools
+            if tool_choice is not None:
+                body["tool_choice"] = tool_choice
         try:
             resp = httpx.post(
                 f"{self.base_url}/chat/completions", json=body, timeout=self.timeout_s

@@ -24,9 +24,12 @@ _UNINHERITED_ENV = ("CHRYSALIS_ENFORCE_ADVISORY", "CHRYSALIS_MODEL_PROFILE")
 class ChrysalisSession:
     """A running chrysalis-mcp over stdio. ``call`` returns the text the client received."""
 
-    def __init__(self, db_path: str | None = None) -> None:
+    def __init__(self, db_path: str | None = None, advice_db: str | None = None) -> None:
+        """``advice_db`` pins this server's learned-advice file (CHRYSALIS_ADVICE_DB) without
+        touching the process environment, so concurrent sessions can each own one."""
         env = {k: v for k, v in os.environ.items() if k not in _UNINHERITED_ENV}
         env.update({"CHRYSALIS_DB": db_path} if db_path else {})
+        env.update({"CHRYSALIS_ADVICE_DB": advice_db} if advice_db else {})
         self._params = StdioServerParameters(
             command=sys.executable, args=["-m", "chrysalis_mcp.server"], env=env
         )
@@ -109,12 +112,14 @@ async def run_agent(
     system: str | None = None,
     max_steps: int = DEFAULT_MAX_STEPS,
     max_tokens: int | None = None,
+    first_tool_choice: str | None = None,
 ) -> dict[str, Any]:
     """Loop tool_calls -> chrysalis -> tool results until a final answer or ``max_steps``.
 
     Returns ``{"status": OK|EMPTY|MAX_STEPS|UNREACHABLE|ERROR, "answer", "metrics", ...}``;
-    never raises for model failures. Without ``chrysalis`` the model runs with no tools
-    (baseline arm).
+    never raises for model failures. ``first_tool_choice`` sets ``tool_choice`` on the FIRST model
+    request only (e.g. "required"); later steps use the server default (auto). Without
+    ``chrysalis`` the model runs with no tools (baseline arm).
     """
     metrics = _new_metrics()
     actions: list[str] = []  # "domain.action" of every well-formed call, in order
@@ -136,11 +141,12 @@ async def run_agent(
             **extra,
         }
 
-    for _ in range(max_steps):
+    for step in range(max_steps):
+        extra: dict[str, Any] = {"max_tokens": max_tokens} if max_tokens else {}
+        if step == 0 and tools and first_tool_choice:
+            extra["tool_choice"] = first_tool_choice
         # llm.chat is a blocking HTTP call: run it in a thread so concurrent items overlap
-        reply = await asyncio.to_thread(
-            llm.chat, messages, tools=tools, **({"max_tokens": max_tokens} if max_tokens else {})
-        )
+        reply = await asyncio.to_thread(llm.chat, messages, tools=tools, **extra)
         metrics["llm_calls"] += 1
         if reply["status"] != "OK":
             return done(reply["status"], error=reply.get("error"))
