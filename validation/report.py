@@ -175,10 +175,19 @@ def _group(llm: dict[str, Any] | None, mode: str, group: str) -> dict[str, Any] 
     return llm.get("modes", {}).get(mode, {}).get(group) or None
 
 
+def _first_group(llm: dict[str, Any] | None, group: str) -> dict[str, Any] | None:
+    """The group from the first mode that has it (off, then on): published runs may be on-only."""
+    for mode in ("off", "on"):
+        found = _group(llm, mode, group)
+        if found:
+            return found
+    return None
+
+
 def verdict_ctx(llm: dict[str, Any] | None) -> tuple[str, str]:
     """H-a-ctx: memory is a cheaper equivalent of the whole-dataset-in-prompt baseline."""
-    mem = (_group(llm, "off", "H-a") or {}).get("memory")
-    ctx = (_group(llm, "off", "H-a-ctx") or {}).get("context")
+    mem = (_first_group(llm, "H-a") or {}).get("memory")
+    ctx = (_first_group(llm, "H-a-ctx") or {}).get("context")
     if not mem or not ctx:
         return INCONCLUSIVE, "H-a memory and H-a-ctx context arms not both run"
     fewer = mem["mean_prompt_tokens"] < ctx["mean_prompt_tokens"]
@@ -196,7 +205,7 @@ SCALE_GAIN_MIN = 0.1  # H-a-scale: memory must beat the truncated context by thi
 
 def verdict_scale(llm: dict[str, Any] | None) -> tuple[str, str]:
     """H-a-scale: with more facts than the window, memory beats the (truncated) context arm."""
-    arms = _group(llm, "off", "H-a-scale")
+    arms = _first_group(llm, "H-a-scale")
     if not arms or "memory" not in arms or "context" not in arms:
         return INCONCLUSIVE, "H-a-scale context and memory arms not both run"
     mem, ctx = arms["memory"], arms["context"]
