@@ -289,11 +289,11 @@ def test_run_rejects_unknown_groups_and_is_unreachable_without_a_server():
     assert out["status"] == "UNREACHABLE"
 
 
-def test_default_groups_skip_the_long_prompt_arms_in_thinking_mode():
+def test_long_prompt_arms_run_in_both_thinking_modes():
     with FakeLlm() as fake:
         fake.script = [reply_text("?")] * 80
         llm = LlmClient(base_url=fake.url, model="fake", timeout_s=10, thinking=False)
         out = eval_llm.run(llm, groups=("ctx", "hard"), limit=1)
-    assert "H-a-ctx" in out["modes"]["off"] and "H-a-ctx" not in out["modes"]["on"]
-    assert set(out["modes"]["on"]) == {"config", "H-c-hard"}
+    assert "H-a-ctx" in out["modes"]["off"] and "H-a-ctx" in out["modes"]["on"]
+    assert set(out["modes"]["on"]) == {"config", "H-a-ctx", "H-c-hard"}
     assert score_qa("x", "y") is False

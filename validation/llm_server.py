@@ -82,8 +82,8 @@ class Config:
     memory_profile: str = "minimal"  # "minimal": --no-host --no-repack | "fast": neither
     sysfs: Path | None = None  # drm device dir; None = auto-detect
     meminfo: Path = Path("/proc/meminfo")
-    # Jinja chat template file overriding the GGUF's embedded one (``--chat-template-file``); needed
-    # when the embedded template does not describe tools (DeepSeek-R1 distill). None = embedded.
+    # Jinja chat template file overriding the GGUF's embedded one (``--chat-template-file``), for a
+    # model whose embedded template does not describe tools. None = embedded.
     chat_template: Path | None = None
 
     @property
@@ -162,31 +162,7 @@ PROFILES: dict[str, dict[str, Any]] = {
         "threads": 6,
         "ram_margin_mib": 4096,
     },
-    # Qwen3.5-4B dense, Q4_0 (~2.6 GiB weights); est_gpu is conservative: weights + KV + buffers
-    "qwen4b": {
-        "model": "Qwen_Qwen3.5-4B-Q4_0.gguf",
-        "alias": "qwen3.5-4b",
-        "ctx": 8192,
-        "est_gpu_mib": 5120,
-        "parallel": 1,  # opt-in: CHRYSALIS_LLM_PARALLEL=N
-        "est_kv_mib_per_slot": 512,
-        "est_ram_mib": 2048,
-        "threads": 6,
-        "ram_margin_mib": 4096,
-    },
     # Golden rule: Q4_K_M quants, one quantizer (bartowski), tool-calling models only.
-    # Qwen3.5-4B dense, Q4_K_M.
-    "qwen4b-km": {
-        "model": "Qwen_Qwen3.5-4B-Q4_K_M.gguf",
-        "alias": "qwen3.5-4b-q4km",
-        "ctx": 8192,
-        "est_gpu_mib": 5376,
-        "parallel": 1,  # opt-in: CHRYSALIS_LLM_PARALLEL=N
-        "est_kv_mib_per_slot": 512,
-        "est_ram_mib": 2048,
-        "threads": 6,
-        "ram_margin_mib": 4096,
-    },
     # Gemma 4 E4B, Q4_K_M.
     "e4b-km": {
         "model": "google_gemma-4-E4B-it-Q4_K_M.gguf",
@@ -199,25 +175,8 @@ PROFILES: dict[str, dict[str, Any]] = {
         "threads": 6,
         "ram_margin_mib": 4096,
     },
-    # DeepSeek-R1-0528 distilled on Qwen3-8B (dense 8B), Q4_K_M. ALWAYS-thinking: thinking cannot
-    # be disabled, so thinking "off" (enable_thinking=False) may be ignored by its chat template.
-    # KV/slot: 36 layers x 8 KV heads x 128 dim x 2 (K,V) x 2 B (f16) = 144 KiB/token
-    # -> 8192 ctx = 1152 MiB.
-    "ds8b-km": {
-        "model": "deepseek-ai_DeepSeek-R1-0528-Qwen3-8B-Q4_K_M.gguf",
-        "alias": "deepseek-r1-0528-qwen3-8b-q4km",
-        "ctx": 8192,
-        "est_gpu_mib": 7168,
-        "parallel": 1,  # opt-in: CHRYSALIS_LLM_PARALLEL=N
-        "est_kv_mib_per_slot": 1152,
-        "est_ram_mib": 2048,
-        "threads": 6,
-        "ram_margin_mib": 4096,
-        # llama.cpp's fixed template (tag b12110): the embedded one does not describe tools
-        "chat_template": "llama-cpp-deepseek-r1.jinja",
-    },
 }
-DEFAULT_PROFILE = "26b"
+DEFAULT_PROFILE = "e4b-km"
 MODEL_DIR = ".local/share/chrysalis/models"
 TEMPLATE_DIR = ".local/share/chrysalis/templates"
 
@@ -612,8 +571,8 @@ def main(
         "--profile",
         choices=sorted(PROFILES),
         help=(
-            "model preset (env CHRYSALIS_LLM_PROFILE; default 26b). Lab: e4b, qwen4b. "
-            "Q4_K_M set (bartowski): e4b-km, qwen4b-km, ds8b-km (DeepSeek-R1, always-thinking)"
+            "model preset (env CHRYSALIS_LLM_PROFILE; default e4b-km). Gemma 4: e4b (Q4_0), "
+            "e4b-km (Q4_K_M, bartowski), 26b (26B-A4B, Q4_0)"
         ),
     )
     ap.add_argument("--force", action="store_true", help="start despite a refused admission")

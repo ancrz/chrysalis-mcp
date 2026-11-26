@@ -48,9 +48,9 @@ def test_parallel_adds_kv_per_extra_slot_to_the_admission_estimate(tmp_path):
 
 def test_parallel_env_profile_and_validation():
     env = {"HOME": "/h", "CHRYSALIS_LLM_PARALLEL": "4", "CHRYSALIS_LLM_EST_KV_MIB_PER_SLOT": "300"}
-    cfg = Config.from_env(env, profile="qwen4b")
+    cfg = Config.from_env(env, profile="e4b-km")
     assert (cfg.parallel, cfg.est_kv_mib_per_slot) == (4, 300)
-    for name in ("qwen4b", "e4b"):
+    for name in ("e4b-km", "e4b"):
         prof = Config.from_env({"HOME": "/h"}, profile=name)
         assert (prof.parallel, prof.est_kv_mib_per_slot) == (1, 512)
     with pytest.raises(ValueError, match="PARALLEL"):

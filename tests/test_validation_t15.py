@@ -182,18 +182,14 @@ def test_run_records_resolved_model_and_params_b():
         assert LlmClient(fake.url).model == "fake"
 
 
-def test_params_b_for_qwen_and_gemma_names_do_not_cross_match():
-    assert eval_llm.params_b_for("qwen3.5-4b") == (4.0, None)
-    assert eval_llm.params_b_for("Qwen_Qwen3.5-4B-Q4_0") == (4.0, None)
+def test_params_b_for_gemma_names():
     assert eval_llm.params_b_for("gemma-4-e4b") == (4.0, None)
     assert eval_llm.params_b_for("gemma-4-26B-A4B-it-Q4_0") == (26.0, 4.0)
+    assert eval_llm.params_b_for("unknown-model") == (eval_llm.DEFAULT_PARAMS_B, None)
+    assert not any("qwen" in k or "deepseek" in k for k, _, _ in eval_llm.KNOWN_PARAMS_B)
 
 
-def test_identity_family_for_qwen_and_gemma():
-    assert (
-        eval_llm.identity(lc.LlmClient("http://x/v1", model="qwen3.5-4b"), 4.0)["family"]
-        == "qwen3.5"
-    )
+def test_identity_family_for_gemma():
     assert (
         eval_llm.identity(lc.LlmClient("http://x/v1", model="gemma-4-e4b"), 4.0)["family"]
         == "gemma"
@@ -222,9 +218,9 @@ def test_results_dir_default_relative_and_absolute_override(tmp_path):
         str(ROOT / "validation" / "results"),
         str(ROOT / "validation" / "results" / "RESULTS.md"),
     )
-    assert _results_dir_in_fresh_process("validation/results_qwen") == (
-        str(ROOT / "validation" / "results_qwen"),
-        str(ROOT / "validation" / "results_qwen" / "RESULTS.md"),
+    assert _results_dir_in_fresh_process("validation/results_alt") == (
+        str(ROOT / "validation" / "results_alt"),
+        str(ROOT / "validation" / "results_alt" / "RESULTS.md"),
     )
     assert _results_dir_in_fresh_process(str(tmp_path)) == (
         str(tmp_path),
@@ -233,7 +229,31 @@ def test_results_dir_default_relative_and_absolute_override(tmp_path):
 
 
 def test_params_b_for_q4km_aliases():
-    assert eval_llm.params_b_for("qwen3.5-4b-q4km") == (4.0, None)
     assert eval_llm.params_b_for("gemma-4-e4b-q4km") == (4.0, None)
-    assert eval_llm.params_b_for("deepseek-r1-0528-qwen3-8b-q4km") == (8.0, None)
-    assert eval_llm.params_b_for("deepseek-ai_DeepSeek-R1-0528-Qwen3-8B-Q4_K_M") == (8.0, None)
+    assert eval_llm.params_b_for("google_gemma-4-E4B-it-Q4_K_M") == (4.0, None)
+
+
+def test_default_thinking_is_on_and_memory_groups_run_in_on_mode():
+    assert eval_llm.HA_MODES == ("off", "on")
+    assert "on" in eval_llm.HA_MODES and all(
+        g in eval_llm.LONG_GROUPS for g in ("ha", "ctx", "hascale")
+    )
+    assert eval_llm.scale_reserve_tokens(eval_llm.MODES["off"]["max_tokens"]) == 1024
+    assert eval_llm.scale_reserve_tokens(2048) > eval_llm.scale_reserve_tokens(512)
+
+
+def test_main_default_thinking_runs_only_on(monkeypatch, tmp_path):
+    seen: dict = {}
+
+    def fake_run(**kw):
+        seen.update(kw)
+        return {"status": "UNREACHABLE"}
+
+    monkeypatch.setattr(eval_llm, "run", fake_run)
+    monkeypatch.setattr(eval_llm, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(eval_llm, "write", lambda result: None)
+    monkeypatch.setattr(eval_llm, "merge", lambda old, new: new)
+    eval_llm.main(["--hyp", "ha"])
+    assert seen["modes"] == ("on",)
+    eval_llm.main(["--hyp", "ha", "--thinking", "both"])
+    assert seen["modes"] == ("off", "on")

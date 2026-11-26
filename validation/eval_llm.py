@@ -16,12 +16,12 @@ itself and hands the model the result). Skips cleanly
 (``status: UNREACHABLE``) when the OpenAI-compatible server is down. Results merge per
 mode and group into ``llm.json`` so arms can be run in separate invocations.
 
-    python -m validation.eval_llm --hyp ha,ctx --thinking off
-    python -m validation.eval_llm --hyp hard,adv,cal --thinking both
-    python -m validation.eval_llm --hyp hascale --thinking off
-    python -m validation.eval_llm --hyp heldout --thinking both
-    python -m validation.eval_llm --hyp hbe2e --thinking both
-    python -m validation.eval_llm --hyp hbio --thinking both
+    python -m validation.eval_llm --hyp ha,ctx
+    python -m validation.eval_llm --hyp hard,adv,cal
+    python -m validation.eval_llm --hyp hascale
+    python -m validation.eval_llm --hyp heldout
+    python -m validation.eval_llm --hyp hbe2e
+    python -m validation.eval_llm --hyp hbio
 """
 
 import argparse
@@ -77,17 +77,23 @@ GROUP_NAMES = {
 }
 # the three verdict arms plus an informational alias baseline free of update-interference
 HBE2E_ARMS = (*HBE2E_BASE_ARMS, "alias_ingest_clean")
-HA_MODES = ("off",)  # long-prompt / memory groups run with thinking off only (cost)
+HA_MODES = ("off", "on")  # memory groups run in both modes; "off" is legacy, "on" is the target
 LONG_GROUPS = ("ha", "ctx", "hascale")
 SERVER_CTX_ENV, DEFAULT_SERVER_CTX = "CHRYSALIS_LLM_CTX", 8192
-SCALE_RESERVE_TOKENS = 1024  # system prompt + question + answer share the window with the facts
+SCALE_PROMPT_RESERVE_TOKENS = 512  # system prompt + question share the window with the facts
+
+
+def scale_reserve_tokens(max_tokens: int) -> int:
+    """Window kept free of facts: prompt + question plus the mode's answer budget (reasoning tokens
+    count against the window). 1024 for the off budget (512), unchanged."""
+    return SCALE_PROMPT_RESERVE_TOKENS + max_tokens
+
+
 CONTEXT_SEED = 12  # fixed shuffle of the facts in the context arm
 DEFAULT_PARAMS_B = 4.0  # Gemma E4B
 # (name key, total params B, active params B or None for dense); 26B-A4B is a MoE (class medium)
 KNOWN_PARAMS_B: tuple[tuple[str, float, float | None], ...] = (
-    ("deepseek-r1-0528-qwen3-8b", 8.0, None),  # before any qwen key: first substring match wins
     ("e4b", 4.0, None),
-    ("qwen3.5-4b", 4.0, None),
     ("26b-a4b", 26.0, 4.0),
 )
 
@@ -553,7 +559,7 @@ async def _scale_group(llm: LlmClient, mt: int, limit: int | None, tmp: str) -> 
     """H-a-scale: more facts than the window. Context arm: the tail that fits; memory: all."""
     data = scaled_qa()
     items = data.items[:limit] if limit else data.items
-    kept, dropped = fit_context(data.facts, server_ctx() - SCALE_RESERVE_TOKENS)
+    kept, dropped = fit_context(data.facts, server_ctx() - scale_reserve_tokens(mt))
 
     async def seed_all(cs: ChrysalisSession) -> None:
         rows = [{"s": s, "r": r, "o": o} for s, r, o in data.triples]
@@ -1036,7 +1042,12 @@ def merge(old: dict[str, Any] | None, new: dict[str, Any]) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(prog="python -m validation.eval_llm", description=__doc__)
     ap.add_argument("--hyp", default=",".join(DEFAULT_GROUPS), help=f"{ALL_GROUPS} or 'all'")
-    ap.add_argument("--thinking", choices=("off", "on", "both"), default="both")
+    ap.add_argument(
+        "--thinking",
+        choices=("off", "on", "both"),
+        default="on",
+        help="default on; off/both kept for legacy results",
+    )
     ap.add_argument("--limit", type=int, default=None, help="items per dataset (smoke runs)")
     ap.add_argument("--params-b", type=float, default=None, help="default: from the served model")
     ap.add_argument(

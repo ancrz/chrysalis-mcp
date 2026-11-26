@@ -259,7 +259,7 @@ def test_eval_runs_end_to_end_against_the_fake_server(monkeypatch):
     assert set(out["data"]) == {"H-a", "H-c"}
     assert out["data"]["H-a"]["alone"]["accuracy"] == 0.0
     assert set(out["modes"]) == {"off", "on"}
-    assert "H-a" in out["modes"]["off"] and "H-a" not in out["modes"]["on"]
+    assert "H-a" in out["modes"]["off"] and "H-a" in out["modes"]["on"]
     assert out["modes"]["on"]["H-c"]["alone"]["mean_reasoning_chars"] == len("thinking...")
     # per-mode budget and thinking switch actually reach the wire (regardless of the base client)
     by_budget = {(r["max_tokens"], "chat_template_kwargs" in r) for r in requests}

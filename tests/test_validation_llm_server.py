@@ -358,9 +358,14 @@ def test_profile_e4b_sets_the_six_fields_and_env_still_overrides():
     assert over.ctx == 4096 and over.threads == 6 and "E4B" in over.model.name
 
 
-def test_default_profile_is_26b_and_unknown_profile_is_rejected():
+def test_default_profile_is_e4b_km_and_unknown_profile_is_rejected():
+    assert ls.DEFAULT_PROFILE == "e4b-km"
     cfg = Config.from_env({"HOME": "/h"})
-    assert "26B-A4B" in cfg.model.name and cfg.est_ram_mib == 15360 and cfg.ram_margin_mib == 6144
+    assert cfg.model.name == "google_gemma-4-E4B-it-Q4_K_M.gguf" and cfg.alias == "gemma-4-e4b-q4km"
+    assert cfg.est_ram_mib == 2048 and cfg.ram_margin_mib == 4096
+    big = Config.from_env({"HOME": "/h"}, profile="26b")
+    assert "26B-A4B" in big.model.name and big.est_ram_mib == 15360 and big.ram_margin_mib == 6144
+    assert sorted(ls.PROFILES) == ["26b", "e4b", "e4b-km"]
     with pytest.raises(ValueError):
         Config.from_env({"HOME": "/h", "CHRYSALIS_LLM_PROFILE": "nope"})
 
@@ -386,71 +391,42 @@ def test_status_shows_the_loaded_model_from_unit_argv_or_config(tmp_path):
 
 def test_e4b_alias_and_env_override():
     assert Config.from_env({"HOME": "/h"}, profile="e4b").alias == "gemma-4-e4b"
-    assert Config.from_env({"HOME": "/h"}).alias == "gemma-4-26b-a4b"
+    assert Config.from_env({"HOME": "/h"}, profile="26b").alias == "gemma-4-26b-a4b"
     env = {"HOME": "/h", "CHRYSALIS_LLM_ALIAS": "mine"}
     assert Config.from_env(env, profile="e4b").alias == "mine"
 
 
-def test_profile_qwen4b_sets_fields_and_env_still_overrides():
-    cfg = Config.from_env({"HOME": "/h"}, profile="qwen4b")
-    assert cfg.model == Path("/h/.local/share/chrysalis/models/Qwen_Qwen3.5-4B-Q4_0.gguf")
-    assert cfg.alias == "qwen3.5-4b"
-    assert (cfg.ctx, cfg.est_gpu_mib, cfg.est_ram_mib, cfg.threads, cfg.ram_margin_mib) == (
-        8192,
-        5120,
-        2048,
-        6,
-        4096,
-    )
-    over = Config.from_env(
-        {"HOME": "/h", "CHRYSALIS_LLM_PROFILE": "qwen4b", "CHRYSALIS_LLM_EST_GPU_MIB": "6000"}
-    )
-    assert over.est_gpu_mib == 6000 and over.alias == "qwen3.5-4b"
-    assert ls.DEFAULT_PROFILE == "26b"
-
-
-@pytest.mark.parametrize(
-    ("name", "model", "alias", "gpu", "kv"),
-    [
-        ("qwen4b-km", "Qwen_Qwen3.5-4B-Q4_K_M.gguf", "qwen3.5-4b-q4km", 5376, 512),
-        ("e4b-km", "google_gemma-4-E4B-it-Q4_K_M.gguf", "gemma-4-e4b-q4km", 6656, 512),
-        (
-            "ds8b-km",
-            "deepseek-ai_DeepSeek-R1-0528-Qwen3-8B-Q4_K_M.gguf",
-            "deepseek-r1-0528-qwen3-8b-q4km",
-            7168,
-            1152,
-        ),
-    ],
-)
-def test_q4km_profiles_resolve(name, model, alias, gpu, kv):
-    cfg = Config.from_env({"HOME": "/h"}, profile=name)
-    assert cfg.model.name == model and cfg.alias == alias
-    assert (cfg.ctx, cfg.est_gpu_mib, cfg.est_kv_mib_per_slot, cfg.parallel) == (8192, gpu, kv, 1)
+def test_q4km_profile_resolves():
+    cfg = Config.from_env({"HOME": "/h"}, profile="e4b-km")
+    assert cfg.model.name == "google_gemma-4-E4B-it-Q4_K_M.gguf" and cfg.alias == "gemma-4-e4b-q4km"
+    assert (cfg.ctx, cfg.est_gpu_mib, cfg.est_kv_mib_per_slot, cfg.parallel) == (8192, 6656, 512, 1)
     assert (cfg.est_ram_mib, cfg.threads, cfg.ram_margin_mib) == (2048, 6, 4096)
+    over = Config.from_env(
+        {"HOME": "/h", "CHRYSALIS_LLM_PROFILE": "e4b-km", "CHRYSALIS_LLM_EST_GPU_MIB": "6000"}
+    )
+    assert over.est_gpu_mib == 6000 and over.alias == "gemma-4-e4b-q4km"
 
 
-def test_ds8b_km_admission_estimate_parallel_4():
-    cfg = Config.from_env({"HOME": "/h", "CHRYSALIS_LLM_PARALLEL": "4"}, profile="ds8b-km")
-    assert cfg.total_est_gpu_mib == 7168 + 3 * 1152
+def test_e4b_km_admission_estimate_parallel_4():
+    cfg = Config.from_env({"HOME": "/h", "CHRYSALIS_LLM_PARALLEL": "4"}, profile="e4b-km")
+    assert cfg.total_est_gpu_mib == 6656 + 3 * 512
     assert cfg.server_ctx == 8192 * 4
 
 
-def test_chat_template_flag_only_for_ds8b_km():
+def test_chat_template_flag_only_when_a_template_is_configured():
     for name in ls.PROFILES:
         cfg = Config.from_env({"HOME": "/h"}, profile=name)
         argv = ls.server_argv(cfg)
-        if name == "ds8b-km":
-            i = argv.index("--chat-template-file")
-            assert argv[i + 1] == "/h/.local/share/chrysalis/templates/llama-cpp-deepseek-r1.jinja"
-            assert argv[i - 1] == "--jinja"
-        else:
-            assert cfg.chat_template is None and "--chat-template-file" not in argv
+        assert cfg.chat_template is None and "--chat-template-file" not in argv
+    cfg = Config.from_env({"HOME": "/h", "CHRYSALIS_LLM_CHAT_TEMPLATE": "/x/t.jinja"})
+    argv = ls.server_argv(cfg)
+    i = argv.index("--chat-template-file")
+    assert argv[i + 1] == "/x/t.jinja" and argv[i - 1] == "--jinja"
 
 
 def test_chat_template_env_override():
     env = {"HOME": "/h", "CHRYSALIS_LLM_CHAT_TEMPLATE": "/x/t.jinja"}
-    assert Config.from_env(env, profile="ds8b-km").chat_template == Path("/x/t.jinja")
+    assert Config.from_env(env, profile="e4b-km").chat_template == Path("/x/t.jinja")
     assert Config.from_env(env, profile="26b").chat_template == Path("/x/t.jinja")
 
 

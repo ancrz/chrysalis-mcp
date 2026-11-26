@@ -313,13 +313,16 @@ The validation loop found two real defects in the learning path, both fixed:
 ```bash
 uv run pytest                                   # unit and contract tests (no model needed)
 uv run pytest -m bench                          # offline benchmarks; write validation/results
-python -m validation.eval_llm --hyp hc,hard,adv --thinking both    # needs a live OpenAI-compatible model
+python -m validation.eval_llm --hyp hc,hard,adv    # needs a live OpenAI-compatible model
 python -m validation.report                     # merge results into a verdict table
 ```
 
 `eval_llm` talks to an OpenAI-compatible endpoint at `CHRYSALIS_LLM_URL`. For local runs,
-`validation/llm_server.py --profile e4b` is a resource-guarded launcher for llama.cpp (admission
-control, RAM caps, watchdog); read its docstring first, since it manages a GPU-backed process.
+`validation/llm_server.py` is a resource-guarded launcher for llama.cpp (admission control, RAM
+caps, watchdog); read its docstring first, since it manages a GPU-backed process. The default
+profile is `e4b-km` (Gemma 4 E4B, Q4_K_M); `e4b` and `26b` are also available. `eval_llm` defaults
+to thinking on (`--thinking on`); `off` and `both` remain accepted for legacy results, and the memory
+groups (`ha`, `ctx`, `hascale`) run in thinking on.
 Hypothesis groups: `ha`, `ctx`, `hc`, `hard`, `adv`, `cal`, `hascale`, `heldout`, `hbe2e`, `hbio`.
 
 Extra arms of `adv` and `heldout` (same items and scoring as `advised`; all run under `--hyp all`):
@@ -369,7 +372,7 @@ literature search was done, so treat the claim as a hypothesis.
 - A better `learned_as` gate (global df, stoplist, coverage; boost share from the query's own KCs)
   and a realistic common-word alias dataset.
 - More tasks per hypothesis, with confidence intervals.
-- Small model families: Gemma 4 E4B plus a small Qwen. No large models (local hardware) and no Gemma 3.
+- Small model family: Gemma 4 E4B only. No large models (local hardware) and no Gemma 3. A small Qwen and a DeepSeek distill were evaluated earlier and dropped; their results are kept locally.
 - Rival baselines on the original benchmarks: SMART, When2Tool, HippoRAG 2, Logic-LM.
 - A better answer for thinking off, where the hint is currently not acted upon.
 

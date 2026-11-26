@@ -260,9 +260,9 @@ def test_feedback_rejects_non_string_model(call):
 
 
 def test_forced_profile_is_the_fallback_identity(call, monkeypatch):
-    monkeypatch.setenv(ENV_PROFILE, "qwen:4")
+    monkeypatch.setenv(ENV_PROFILE, "gemma:4")
     out = call("meta", "feedback", params=FB, session_id="s5")
-    assert out["status"] == "OK" and "implicit_handshake" not in out and "qwen" in out["model"]
+    assert out["status"] == "OK" and "implicit_handshake" not in out and "gemma" in out["model"]
 
 
 def test_advice_reset_without_model_gives_handshake_example(call):
