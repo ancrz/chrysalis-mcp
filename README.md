@@ -13,7 +13,8 @@
 [![NumPy](https://img.shields.io/badge/NumPy-2.5-013243?style=for-the-badge&logo=numpy&logoColor=white)](https://numpy.org/)
 [![llama.cpp](https://img.shields.io/badge/llama.cpp-GGUF-6C4AB6?style=for-the-badge)](https://github.com/ggml-org/llama.cpp)
 [![Gemma 4](https://img.shields.io/badge/Gemma_4-E4B-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/gemma)
-[![pytest](https://img.shields.io/badge/pytest-652_tests-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
+[![CI](https://github.com/ancrz/chrysalis-mcp/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/ancrz/chrysalis-mcp/actions/workflows/ci.yml)
+[![pytest](https://img.shields.io/badge/pytest-848_tests-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
 [![ruff](https://img.shields.io/badge/ruff-lint-D7FF64?style=for-the-badge&logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![uv](https://img.shields.io/badge/uv-managed-DE5FE9?style=for-the-badge&logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge)](LICENSE)
@@ -262,21 +263,28 @@ uv run ruff check . && uv run ruff format --check .
 ## Validation and results
 
 Results are generated from `validation/results/*.json` by `python -m validation.report`. They are
-reported as measured, including the ones that did not support the hypothesis.
+reported as measured, including the ones that did not support the hypothesis. The full tables,
+run configuration and caveats are in [`validation/results/RESULTS.md`](validation/results/RESULTS.md);
+release history is in [`CHANGELOG.md`](CHANGELOG.md).
+
+**Headline numbers** (Gemma 4 E4B, Q4_K_M, thinking on, n = 12 to 45 per arm, small-n caveats in
+RESULTS.md): memory answers 19/20 questions with chrysalis vs 0/20 alone; with 800 facts beyond the
+window, memory gets 15 to 16/20 vs 0 to 1/20 for the truncated context; the bio actions pass 41/45
+trials (H-bio).
 
 | Hypothesis | Verdict | Result |
 |------------|---------|--------|
 | H-b: continual learning does not forget (synthetic) | Supported | Accuracy on old associations after 1000 new updates: retention 1.00 with the sparse store vs 0.00 with an overwrite baseline. |
 | H-a: two-hop retrieval | Supported | recall@5 0.45 (PPR) vs 0.40 (seeds); one call instead of two. |
-| H-b-e2e: learned aliases, model in the loop | Supported | Gemma 4 E4B, 12 learned invented aliases, 300 interference updates. `fly_update` 0.75 vs `no_learn` 0.0 in both thinking modes. The classic alias-ingest baseline scores 0.83 (thinking off) and 1.0 (thinking on). Retrieval recall@5 0.967, retention 1.0 after interference. |
-| H-a: end to end | Supported | Accuracy 0.0 alone vs 0.6 with memory. |
-| H-a-ctx: memory vs full context | Not supported | 0.6 with memory vs 0.9 with the full context when the facts fit in the window. |
-| H-a-scale: facts beyond the window | Supported | 0.35 with memory vs 0.0 with context (+0.35). |
+| H-b-e2e: learned aliases, model in the loop | Supported | Gemma 4 E4B, 12 learned invented aliases, 300 interference updates. `fly_update` 0.83 vs `no_learn` 0.0 (thinking on). The classic alias-ingest baseline scores 1.0. Retrieval recall@5 0.967, retention 1.0 after interference. |
+| H-a: end to end | Supported | Accuracy 0.0 alone vs 0.95 with memory (19/20). |
+| H-a-ctx: memory vs full context | Not supported | 0.95 with memory vs 0.95 with the full context when the facts fit in the window (about 1095 vs 469 prompt tokens per question, so memory is not cheaper at that size). |
+| H-a-scale: facts beyond the window | Supported | 0.80 with memory vs 0.0 with context (200 of 800 facts fit); 0.75 vs 0.05 with bio defaults off. |
 | H-a': FlyHash vs exact cosine | Not supported | At N=1000, FlyHash cluster precision is worse than cosine (about 0.54 x cosine at the shipped setting, best swept 0.69 x). FlyHash retrieval is therefore **experimental**. |
-| H-c: solver on small puzzles | Not supported | 0.8 alone vs 0.6 with the solver (thinking off). |
-| H-c-hard: solver on hard puzzles | Supported | +0.12 accuracy with the solver in both thinking modes (off 0.18 to 0.29; on 0.82 to 0.94). |
-| H-adv held-out, thinking on | Supported | Advised arm 16/16 vs best fixed arm 15/16 (n=16). |
-| H-adv held-out, thinking off | Not supported | Advised 0.25 vs best fixed 0.375; the model rarely acts on the hint with thinking off. |
+| H-c: solver on small puzzles | Not supported | 1.0 alone vs 1.0 with the solver: the model already solves the easy set. |
+| H-c-hard: solver on hard puzzles | Supported | +0.12 accuracy with the solver (0.88 alone to 1.0 with the tool, thinking on). |
+| H-adv held-out, thinking on | Supported | Advised arm 16/16 vs best fixed arm 15/16 (n=16). Resistance arms: fewshot 16/16, forced 15/16; `oracle_ctx` 16/16 is an upper bound, not a fair arm. |
+| H-bio: bio actions per step | 41/45 trials | Each of 15 steps isolated and repeated 3 times; misses are in `handshake` (1/3), `advise` (2/3) and `feedback` (2/3). |
 | H-mcp: batching cost | Supported | Estimated tokens: batch 921, sequential 2127, granular tools 7977 (granular is simulated). |
 
 Additional finding: an unconditional "reply with ONLY the JSON object" reminder in the prompt
@@ -391,6 +399,8 @@ chrysalis-bridge/
 │   └── data/evidence.json   # advisory rules, each citing a measurement
 ├── tests/                   # unit, contract and stdio end-to-end tests
 ├── validation/              # benchmarks, LLM harness, guarded llama.cpp launcher, results/*.json
+├── .github/workflows/ci.yml  # CI: ruff lint, format check, pytest
+├── CHANGELOG.md
 ├── pyproject.toml
 ├── uv.lock
 ├── LICENSE

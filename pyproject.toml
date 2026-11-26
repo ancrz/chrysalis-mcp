@@ -1,6 +1,6 @@
 [project]
 name = "chrysalis-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "Single-tool MCP server: memory, continual learning and reasoning for a pinned local LLM."
 readme = "README.md"
 license = "Apache-2.0"
