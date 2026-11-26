@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # setup-uv no longer publishes floating major tags; pin the exact release.
+      - name: Set up uv and Python 3.14
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          python-version: "3.14"
+          enable-cache: true
+
+      # The default dependency group "dev" (pytest, ruff) is installed by uv sync.
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      # pyproject addopts already deselects the `bench` and `llm` markers (no model, no GPU).
+      - name: Tests
+        run: uv run pytest -q
