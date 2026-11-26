@@ -300,6 +300,43 @@ def test_bio_scoring_params_subset_and_server_status():
     assert bio_steps.score_step([(syn, ok)], fb)["passed"]  # curated synonym == server rename
 
 
+def test_bio_scores_bare_list_params_like_the_server_wraps_them():
+    ingest = next(s for s in bio_steps.STEPS if s.sid == "ingest")
+    fb = next(s for s in bio_steps.STEPS if s.sid == "feedback")
+    ok = {"status": "OK"}
+    triples = [{"subject": "Lumen", "predicate": "is_a", "object": "telescope"}]
+    as_list = {"domain": "memory", "action": "ingest", "params": triples}
+    as_str = {"domain": "memory", "action": "ingest", "params": json.dumps(triples)}
+    assert bio_steps.score_step([(as_list, ok)], ingest)["passed"]
+    assert bio_steps.score_step([(as_str, ok)], ingest)["passed"]
+    # meta.feedback has no sole required array param: the server rejects a list, so no hit
+    no_wrap = {"domain": "meta", "action": "feedback", "params": json.dumps(triples)}
+    assert not bio_steps.score_step([(no_wrap, ok)], fb)["called"]
+
+
+def test_bio_batch_counts_only_when_a_step_is_the_target():
+    fb = next(s for s in bio_steps.STEPS if s.sid == "feedback")
+    ok = {"status": "OK"}
+
+    def batch(steps, *, as_string=False):
+        params = {"steps": steps}
+        return {
+            "domain": "meta",
+            "action": "batch",
+            "params": json.dumps(params) if as_string else params,
+        }
+
+    hit = [{"id": "a", "domain": "meta", "action": "feedback", "params": {"action": "x"}}]
+    miss = [
+        {"id": "a", "domain": "memory", "action": "ingest", "params": {"note": "meta feedback"}}
+    ]
+    assert bio_steps.score_step([(batch(hit), ok)], fb)["called"]
+    assert bio_steps.score_step([(batch(hit, as_string=True), ok)], fb)["passed"]
+    assert not bio_steps.score_step([(batch(miss), ok)], fb)["called"]  # substring no longer hits
+    assert not bio_steps.score_step([(batch("nope"), ok)], fb)["called"]  # malformed steps
+    assert not bio_steps.score_step([(batch(["meta.feedback"]), ok)], fb)["called"]
+
+
 def test_bio_runs_concurrently_and_renders_in_report(tmp_path, monkeypatch):
     monkeypatch.setenv(bio_steps.ENV_REPS, "2")
     monkeypatch.setattr(eval_llm, "RESULTS_DIR", tmp_path)

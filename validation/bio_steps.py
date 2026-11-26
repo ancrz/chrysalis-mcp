@@ -12,8 +12,9 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
-from chrysalis_mcp.core.registry import AUTO_RENAMES
-from chrysalis_mcp.server import decode_params_string
+from chrysalis_mcp.core.registry import AUTO_RENAMES, Registry
+from chrysalis_mcp.domains import build_registry
+from chrysalis_mcp.server import coerce_params
 
 ENV_REPS = "CHRYSALIS_EVAL_BIO_REPS"
 DEFAULT_REPS = 3
@@ -213,11 +214,24 @@ async def seed_step(cs: Any, step: BioStep, who: dict[str, Any]) -> None:
                 raise RuntimeError(f"H-bio seed {prereq} for {step.sid} failed: {out.get('error')}")
 
 
+_REGISTRY: Registry | None = None
+
+
+def _registry() -> Registry:
+    """Lazily built (module-level cache): the same actions the server coerces params against."""
+    global _REGISTRY
+    if _REGISTRY is None:
+        _REGISTRY = build_registry()
+    return _REGISTRY
+
+
 def _params(args: dict[str, Any]) -> dict[str, Any]:
-    raw = args.get("params")
-    if isinstance(raw, str):
-        raw, _ = decode_params_string(raw)
-    return raw if isinstance(raw, dict) else {}
+    """The params the server would act on: JSON/literal strings decoded, a bare list wrapped into
+    the action's sole required array param (``server.coerce_params``, not re-implemented here)."""
+    coerced, _note, error = coerce_params(
+        _registry(), str(args.get("domain")), str(args.get("action")), args.get("params")
+    )
+    return coerced if error is None and isinstance(coerced, dict) else {}
 
 
 def _has(params: dict[str, Any], key: str, value: Any) -> bool:
@@ -238,11 +252,18 @@ def matches(args: dict[str, Any], step: BioStep) -> bool:
 
 
 def _batch_hits(args: dict[str, Any], step: BioStep) -> bool:
-    """A meta.batch whose steps name the target (a model may chain; the server runs them)."""
+    """A meta.batch counts only if one of its steps IS the target (domain + action equal)."""
     if args.get("domain") != "meta" or args.get("action") != "batch":
         return False
-    blob = json.dumps(args, default=str)
-    return any(t.split(".")[0] in blob and t.split(".")[1] in blob for t in step.targets)
+    steps = _params(args).get("steps")
+    if not isinstance(steps, list):
+        return False
+    for inner in steps:
+        if not isinstance(inner, dict):
+            continue
+        if f"{inner.get('domain')}.{inner.get('action')}" in step.targets:
+            return True
+    return False
 
 
 def score_step(calls: list[tuple[dict[str, Any], dict[str, Any]]], step: BioStep) -> dict[str, Any]:
