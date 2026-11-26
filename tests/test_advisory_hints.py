@@ -13,7 +13,7 @@ from chrysalis_mcp.core.session import SessionCache
 from chrysalis_mcp.domains import build_registry
 from chrysalis_mcp.server import handle_call
 from tests.test_task_advisory import _entry
-from tests.test_validation_t12 import _WHO
+from tests.test_validation_adv_arms import _WHO
 from validation import eval_llm
 from validation.bridge import ChrysalisSession
 

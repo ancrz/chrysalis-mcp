@@ -14,7 +14,7 @@ from chrysalis_mcp.core.session import SessionCache
 from chrysalis_mcp.domains import build_registry
 from chrysalis_mcp.server import handle_call
 from tests.fake_llm import FakeLlm, reply_text
-from tests.test_validation_t12 import _solve
+from tests.test_validation_adv_arms import _solve
 from validation import datasets, eval_llm, report
 from validation.datasets import HARD_PUZZLES, HELDOUT_EASY, HELDOUT_HARD, HELDOUT_PUZZLES
 from validation.llm_client import LlmClient

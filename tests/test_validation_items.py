@@ -5,7 +5,7 @@ import json
 from typing import Any
 
 from tests.fake_llm import FakeLlm, reply_text
-from tests.test_validation_t12 import _fixture
+from tests.test_validation_adv_arms import _fixture
 from validation import eval_llm, report
 from validation.bridge import run_agent
 from validation.llm_client import LlmClient
