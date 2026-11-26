@@ -44,15 +44,15 @@ class FakeRunner:
         return subprocess.CompletedProcess(argv, rc, self.stdout, "boom")
 
 
-# est_gpu 4096 + margin 4096 = 8192 needed in GTT; est_ram 15360 + margin 6144 = 21504 in RAM
+# est_gpu 4096 + margin 4096 = 8192 in GTT; est_ram 15360 + cache 1024 + margin 6144 = 22528 in RAM
 @pytest.mark.parametrize(
     "gtt, ram, ok",
     [
         (12000, 30000, True),
         (8192, 30000, True),  # exact margin admits
         (8191, 30000, False),  # one MiB under
-        (12000, 21504, True),
-        (12000, 21503, False),
+        (12000, 22528, True),
+        (12000, 22527, False),
         (3000, 5000, False),
     ],
 )
@@ -125,7 +125,8 @@ def test_dry_run_emits_exact_capped_argv_and_runs_nothing(tmp_path):
     assert argv[argv.index(str(cfg.binary)) :] == [
         str(cfg.binary), "-m", str(cfg.model), "--host", "127.0.0.1", "--port", "8080",
         "--cpu-moe", "-ngl", "99", "-c", "8192", "--fit", "on", "--fit-target", "4096",
-        "-t", "8", "--jinja", "--no-host", "--no-repack", "--alias", "gemma-4-26b-a4b",
+        "-t", "8", "--cache-ram", "1024", "--jinja", "--no-host", "--no-repack",
+        "--alias", "gemma-4-26b-a4b",
     ]  # fmt: skip
     wd = payload["watchdog_argv"]
     assert "BindsTo=chrysalis-llm.service" in wd and wd[-2:] == [
@@ -438,3 +439,21 @@ def test_preflight_reports_missing_chat_template(tmp_path):
     cfg.chat_template.write_text("")
     out.clear()
     assert ls.cmd_preflight(cfg, out.append) == 0
+
+
+def test_cache_ram_is_capped_in_argv_env_validated_and_budgeted(tmp_path):
+    cfg = make_cfg(tmp_path)
+    argv = ls.server_argv(cfg)
+    assert argv[argv.index("--cache-ram") + 1] == "1024"
+    off = ls.server_argv(Config(**{**cfg.__dict__, "cache_ram_mib": 0}))
+    assert off[off.index("--cache-ram") + 1] == "0"
+    assert Config.from_env({"HOME": "/h"}).cache_ram_mib == 1024
+    env = {"HOME": "/h", "CHRYSALIS_LLM_CACHE_RAM_MIB": "0"}
+    assert Config.from_env(env).cache_ram_mib == 0
+    with pytest.raises(ValueError, match="CACHE_RAM"):
+        Config.from_env({"HOME": "/h", "CHRYSALIS_LLM_CACHE_RAM_MIB": "-1"})
+    # the cache counts toward the RAM admission estimate: est 15360 + 1024 + margin 6144 = 22528
+    assert cfg.total_est_ram_mib == cfg.est_ram_mib + 1024
+    need = cfg.total_est_ram_mib + cfg.ram_margin_mib
+    assert ls.admit(Resources(20000, 0, need), cfg).admitted
+    assert not ls.admit(Resources(20000, 0, need - 1), cfg).admitted

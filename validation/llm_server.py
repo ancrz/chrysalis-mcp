@@ -72,6 +72,10 @@ class Config:
     # holds one slot's KV at ``ctx``. Conservative per-profile figure (see ``total_est_gpu_mib``).
     est_kv_mib_per_slot: int = 512
     est_ram_mib: int = 15360  # expert weights (mmap, page cache) + buffers
+    # Host prompt cache cap (``--cache-ram``, MiB). llama.cpp b12110 defaults to 8192, which let the
+    # server's RSS grow from ~3 GB to ~7 GB during an eval until the RAM-floor watchdog fired. 0
+    # disables the cache; -1 (unlimited) is rejected. Budgeted in ``total_est_ram_mib``.
+    cache_ram_mib: int = 1024
     gtt_margin_mib: int = 4096  # must remain free in GTT after the server's footprint
     ram_margin_mib: int = 6144  # must remain available in RAM after the server's footprint
     gtt_floor_mib: int = 2048  # watchdog: stop when GTT free drops below
@@ -96,6 +100,11 @@ class Config:
         """Admission estimate: single-slot footprint plus the KV of every extra slot."""
         return self.est_gpu_mib + (self.parallel - 1) * self.est_kv_mib_per_slot
 
+    @property
+    def total_est_ram_mib(self) -> int:
+        """Admission estimate: weights/buffers plus the host prompt cache, which can fill up."""
+        return self.est_ram_mib + self.cache_ram_mib
+
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None, profile: str | None = None) -> Config:
         """``profile`` (or CHRYSALIS_LLM_PROFILE) sets the defaults; explicit env vars still win."""
@@ -113,6 +122,9 @@ class Config:
         parallel = _env_int(e, "CHRYSALIS_LLM_PARALLEL", d["parallel"].default)
         if parallel < 1:
             raise ValueError(f"CHRYSALIS_LLM_PARALLEL must be >= 1, got {parallel}")
+        cache_ram = _env_int(e, "CHRYSALIS_LLM_CACHE_RAM_MIB", d["cache_ram_mib"].default)
+        if cache_ram < 0:
+            raise ValueError(f"CHRYSALIS_LLM_CACHE_RAM_MIB must be >= 0, got {cache_ram}")
         template = e.get("CHRYSALIS_LLM_CHAT_TEMPLATE")
         if template is None and prof.get("chat_template"):
             template = str(home / TEMPLATE_DIR / prof["chat_template"])
@@ -138,6 +150,7 @@ class Config:
             threads=_env_int(e, "CHRYSALIS_LLM_THREADS", d["threads"].default),
             est_gpu_mib=_env_int(e, "CHRYSALIS_LLM_EST_GPU_MIB", d["est_gpu_mib"].default),
             est_ram_mib=_env_int(e, "CHRYSALIS_LLM_EST_RAM_MIB", d["est_ram_mib"].default),
+            cache_ram_mib=cache_ram,
             gtt_margin_mib=_env_int(e, "CHRYSALIS_LLM_GTT_MARGIN_MIB", d["gtt_margin_mib"].default),
             ram_margin_mib=_env_int(e, "CHRYSALIS_LLM_RAM_MARGIN_MIB", d["ram_margin_mib"].default),
             gtt_floor_mib=_env_int(e, "CHRYSALIS_LLM_GTT_FLOOR_MIB", d["gtt_floor_mib"].default),
@@ -259,10 +272,10 @@ def admit(res: Resources, cfg: Config) -> Decision:
             f"GTT free {res.gtt_free_mib} MiB - est {est_gpu} < margin {cfg.gtt_margin_mib}"
         )
     if res.ram_available_mib is not None and (
-        res.ram_available_mib - cfg.est_ram_mib < cfg.ram_margin_mib
+        res.ram_available_mib - cfg.total_est_ram_mib < cfg.ram_margin_mib
     ):
         reasons.append(
-            f"MemAvailable {res.ram_available_mib} MiB - est {cfg.est_ram_mib} "
+            f"MemAvailable {res.ram_available_mib} MiB - est {cfg.total_est_ram_mib} "
             f"< margin {cfg.ram_margin_mib}"
         )
     return Decision(not reasons, tuple(reasons))
@@ -314,6 +327,8 @@ def server_argv(cfg: Config) -> list[str]:
         str(cfg.gtt_margin_mib),
         "-t",
         str(cfg.threads),
+        "--cache-ram",
+        str(cfg.cache_ram_mib),
         "--jinja",
         *(["--chat-template-file", str(cfg.chat_template)] if cfg.chat_template else []),
         *MEMORY_PROFILES[cfg.memory_profile],
