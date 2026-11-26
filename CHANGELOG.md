@@ -11,6 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Calibration result for Gemma 4 E4B with reasoning on (memory 1.0, reason 1.0; sign agrees with
   the measured tool gain for both families) in `validation/results/RESULTS.md`.
+- The tool description names the self-report verbs `meta.handshake`, `meta.advise` and
+  `meta.feedback`.
+- Shape-based redirects: a failing `reason.*` call carrying a task descriptor (`n_vars`, `goal`)
+  suggests `meta.advise`, and a failing `memory.ingest` carrying feedback fields suggests
+  `meta.feedback`, each with a valid, size-bounded example.
+- `CHRYSALIS_LLM_CACHE_RAM_MIB` (default 1024) caps the llama.cpp host prompt cache in the guarded
+  launcher and is counted in RAM admission.
+
+### Changed
+
+- Caller-supplied key names echoed in parameter errors are truncated to 64 characters.
+- H-bio rerun with 5 repetitions per step: 75/75 (was 41/45). H-mcp bench regenerated.
+
+### Fixed
+
+- H-bio scoring: a bare list of triples, which the server accepts, now counts as a hit, and a
+  `meta.batch` counts only when one of its steps is the target (no substring matches).
+- The guarded launcher no longer lets llama.cpp's default 8 GiB prompt cache push the host below
+  the RAM floor during long batteries.
 
 ## [0.2.0] - 2026-11-26
 

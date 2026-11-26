@@ -269,7 +269,7 @@ release history is in [`CHANGELOG.md`](CHANGELOG.md).
 
 **Headline numbers** (Gemma 4 E4B, Q4_K_M, thinking on, n = 12 to 45 per arm, small-n caveats in
 RESULTS.md): memory answers 19/20 questions with chrysalis vs 0/20 alone; with 800 facts beyond the
-window, memory gets 15 to 16/20 vs 0 to 1/20 for the truncated context; the bio actions pass 41/45
+window, memory gets 15 to 16/20 vs 0 to 1/20 for the truncated context; the bio actions pass 75/75
 trials (H-bio).
 
 | Hypothesis | Verdict | Result |
@@ -284,8 +284,8 @@ trials (H-bio).
 | H-c: solver on small puzzles | Not supported | 1.0 alone vs 1.0 with the solver: the model already solves the easy set. |
 | H-c-hard: solver on hard puzzles | Supported | +0.12 accuracy with the solver (0.88 alone to 1.0 with the tool, thinking on). |
 | H-adv held-out, thinking on | Supported | Advised arm 16/16 vs best fixed arm 15/16 (n=16). Resistance arms: fewshot 16/16, forced 15/16; `oracle_ctx` 16/16 is an upper bound, not a fair arm. |
-| H-bio: bio actions per step | 41/45 trials | Each of 15 steps isolated and repeated 3 times; misses are in `handshake` (1/3), `advise` (2/3) and `feedback` (2/3). |
-| H-mcp: batching cost | Supported | Estimated tokens: batch 921, sequential 2127, granular tools 7977 (granular is simulated). |
+| H-bio: bio actions per step | 75/75 trials | Each of 15 steps isolated and repeated 5 times; every step 5/5. |
+| H-mcp: batching cost | Supported | Estimated tokens: batch 1129, sequential 2578, granular tools 14488 (granular is simulated). |
 
 Additional finding: an unconditional "reply with ONLY the JSON object" reminder in the prompt
 **suppressed tool calls** (solver use fell to 0 in the ablation), so the project only appends a

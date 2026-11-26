@@ -4347,95 +4347,94 @@
     },
     "H-bio": {
       "bio": {
-        "n": 45,
-        "accuracy": 0.9111,
+        "n": 75,
+        "accuracy": 1.0,
         "truncated_rate": 0.0,
         "statuses": [
-          "MAX_STEPS",
           "OK"
         ],
-        "mean_prompt_tokens": 2244.1,
-        "mean_completion_tokens": 871.0,
-        "mean_reasoning_chars": 2794.8,
-        "mean_tool_calls": 1.82,
-        "mean_tool_bytes": 1693.9,
-        "mean_wall_s": 69.19,
-        "reason_use_rate": 0.0444,
+        "mean_prompt_tokens": 1516.7,
+        "mean_completion_tokens": 510.9,
+        "mean_reasoning_chars": 1532.4,
+        "mean_tool_calls": 1.37,
+        "mean_tool_bytes": 904.1,
+        "mean_wall_s": 41.5,
+        "reason_use_rate": 0.0,
         "memory_use_rate": 0.3333,
-        "handshake_first_rate": 0.0222,
+        "handshake_first_rate": 0.0667,
         "by_subset": {
           "handshake": {
-            "n": 3,
-            "accuracy": 0.3333,
+            "n": 5,
+            "accuracy": 1.0,
             "reason_use_rate": 0.0
           },
           "ingest": {
-            "n": 3,
+            "n": 5,
             "accuracy": 1.0,
             "reason_use_rate": 0.0
           },
           "teach1": {
-            "n": 3,
+            "n": 5,
             "accuracy": 1.0,
             "reason_use_rate": 0.0
           },
           "teach2": {
-            "n": 3,
+            "n": 5,
             "accuracy": 1.0,
             "reason_use_rate": 0.0
           },
           "recall_quorum": {
-            "n": 3,
+            "n": 5,
             "accuracy": 1.0,
             "reason_use_rate": 0.0
           },
           "recall_usage": {
-            "n": 3,
+            "n": 5,
             "accuracy": 1.0,
             "reason_use_rate": 0.0
           },
           "recall_inhib": {
-            "n": 3,
+            "n": 5,
             "accuracy": 1.0,
             "reason_use_rate": 0.0
           },
           "recall_sdm": {
-            "n": 3,
+            "n": 5,
             "accuracy": 1.0,
             "reason_use_rate": 0.0
           },
           "flyvec_train": {
-            "n": 3,
+            "n": 5,
             "accuracy": 1.0,
             "reason_use_rate": 0.0
           },
           "recall_flyvec": {
-            "n": 3,
+            "n": 5,
             "accuracy": 1.0,
             "reason_use_rate": 0.0
           },
           "consolidate": {
-            "n": 3,
+            "n": 5,
             "accuracy": 1.0,
             "reason_use_rate": 0.0
           },
           "advise": {
-            "n": 3,
-            "accuracy": 0.6667,
-            "reason_use_rate": 0.6667
+            "n": 5,
+            "accuracy": 1.0,
+            "reason_use_rate": 0.0
           },
           "feedback": {
-            "n": 3,
-            "accuracy": 0.6667,
+            "n": 5,
+            "accuracy": 1.0,
             "reason_use_rate": 0.0
           },
           "advice_stats": {
-            "n": 3,
+            "n": 5,
             "accuracy": 1.0,
             "reason_use_rate": 0.0
           },
           "advice_reset": {
-            "n": 3,
+            "n": 5,
             "accuracy": 1.0,
             "reason_use_rate": 0.0
           }
@@ -4444,13 +4443,15 @@
           {
             "i": 0,
             "tag": "handshake",
-            "correct": false,
+            "correct": true,
             "status": "OK",
             "finish_reason": "stop",
-            "actions": [],
-            "answer": "I am model 'gemma-4-e4b-q4km', family 'gemma', with params_b 4.0.",
-            "prompt_tokens": 332,
-            "completion_tokens": 541
+            "actions": [
+              "meta.handshake"
+            ],
+            "answer": "I have successfully declared my profile to the tool.",
+            "prompt_tokens": 1314,
+            "completion_tokens": 227
           },
           {
             "i": 1,
@@ -4461,48 +4462,49 @@
             "actions": [
               "meta.handshake"
             ],
-            "answer": "I have successfully declared myself to the tool as model 'gemma-4-e4b-q4km'.",
-            "prompt_tokens": 1232,
-            "completion_tokens": 674
+            "answer": "I have successfully declared my profile to the tool.",
+            "prompt_tokens": 1314,
+            "completion_tokens": 227
           },
           {
             "i": 2,
             "tag": "handshake",
-            "correct": false,
+            "correct": true,
             "status": "OK",
             "finish_reason": "stop",
-            "actions": [],
-            "answer": "I am model 'gemma-4-e4b-q4km' from the 'gemma' family with params_b 4.0.",
-            "prompt_tokens": 332,
-            "completion_tokens": 363
+            "actions": [
+              "meta.handshake"
+            ],
+            "answer": "I have successfully declared my profile to the tool.",
+            "prompt_tokens": 1312,
+            "completion_tokens": 227
           },
           {
             "i": 3,
-            "tag": "ingest",
+            "tag": "handshake",
             "correct": true,
             "status": "OK",
             "finish_reason": "stop",
             "actions": [
-              "memory.ingest",
-              "memory.ingest"
+              "meta.handshake"
             ],
-            "answer": "The facts have been successfully stored in memory as triples.",
-            "prompt_tokens": 2164,
-            "completion_tokens": 1059
+            "answer": "I have successfully declared my profile to the tool.",
+            "prompt_tokens": 1314,
+            "completion_tokens": 253
           },
           {
             "i": 4,
-            "tag": "ingest",
+            "tag": "handshake",
             "correct": true,
             "status": "OK",
             "finish_reason": "stop",
             "actions": [
-              "memory.ingest",
-              "memory.ingest"
+              "meta.handshake",
+              "meta.handshake"
             ],
-            "answer": "The facts have been successfully stored in memory as triples.",
-            "prompt_tokens": 2165,
-            "completion_tokens": 1059
+            "answer": "I have successfully declared myself to the tool as model 'gemma-4-e4b-q4km'.",
+            "prompt_tokens": 2159,
+            "completion_tokens": 531
           },
           {
             "i": 5,
@@ -4515,39 +4517,64 @@
               "memory.ingest"
             ],
             "answer": "The facts have been successfully stored in memory as triples.",
-            "prompt_tokens": 2165,
-            "completion_tokens": 1011
+            "prompt_tokens": 2287,
+            "completion_tokens": 989
           },
           {
             "i": 6,
-            "tag": "teach1",
+            "tag": "ingest",
             "correct": true,
             "status": "OK",
             "finish_reason": "stop",
             "actions": [
               "memory.ingest",
-              "memory.update"
+              "memory.ingest"
             ],
-            "answer": "Memory has been updated to associate 'the space eye of the Andes' with the node 'Lumen'.",
-            "prompt_tokens": 1948,
-            "completion_tokens": 705
+            "answer": "The facts have been successfully stored in memory as triples.",
+            "prompt_tokens": 2211,
+            "completion_tokens": 972
           },
           {
             "i": 7,
-            "tag": "teach1",
+            "tag": "ingest",
             "correct": true,
             "status": "OK",
             "finish_reason": "stop",
             "actions": [
-              "memory.ingest",
-              "memory.update"
+              "memory.ingest"
             ],
-            "answer": "Memory has been updated to associate 'the space eye of the Andes' with the node 'Lumen'.",
-            "prompt_tokens": 1950,
-            "completion_tokens": 707
+            "answer": "The facts have been successfully stored in memory as triples.",
+            "prompt_tokens": 1255,
+            "completion_tokens": 468
           },
           {
             "i": 8,
+            "tag": "ingest",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.ingest"
+            ],
+            "answer": "The facts have been successfully stored in memory as triples.",
+            "prompt_tokens": 1253,
+            "completion_tokens": 463
+          },
+          {
+            "i": 9,
+            "tag": "ingest",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.ingest"
+            ],
+            "answer": "The facts have been successfully stored in memory as triples.",
+            "prompt_tokens": 1255,
+            "completion_tokens": 465
+          },
+          {
+            "i": 10,
             "tag": "teach1",
             "correct": true,
             "status": "OK",
@@ -4557,39 +4584,67 @@
               "memory.update"
             ],
             "answer": "Memory has been updated to associate 'the space eye of the Andes' with the node 'Lumen'.",
-            "prompt_tokens": 1967,
-            "completion_tokens": 676
-          },
-          {
-            "i": 9,
-            "tag": "teach2",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.ingest",
-              "memory.update"
-            ],
-            "answer": "The memory has been successfully updated to associate 'Andean sky observatory in orbit' with node 'Lumen'.",
-            "prompt_tokens": 1965,
-            "completion_tokens": 884
-          },
-          {
-            "i": 10,
-            "tag": "teach2",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.ingest",
-              "memory.update"
-            ],
-            "answer": "The memory has been successfully updated to associate 'Andean sky observatory in orbit' with node 'Lumen'.",
-            "prompt_tokens": 1963,
-            "completion_tokens": 884
+            "prompt_tokens": 2090,
+            "completion_tokens": 684
           },
           {
             "i": 11,
+            "tag": "teach1",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.ingest",
+              "memory.update"
+            ],
+            "answer": "Memory has been updated to associate 'the space eye of the Andes' with the node 'Lumen'.",
+            "prompt_tokens": 2086,
+            "completion_tokens": 686
+          },
+          {
+            "i": 12,
+            "tag": "teach1",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.ingest",
+              "memory.update"
+            ],
+            "answer": "Memory has been updated to associate 'the space eye of the Andes' with the node 'Lumen'.",
+            "prompt_tokens": 2085,
+            "completion_tokens": 706
+          },
+          {
+            "i": 13,
+            "tag": "teach1",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.ingest",
+              "memory.update"
+            ],
+            "answer": "Memory has been updated to associate 'the space eye of the Andes' with the node 'Lumen'.",
+            "prompt_tokens": 2086,
+            "completion_tokens": 668
+          },
+          {
+            "i": 14,
+            "tag": "teach1",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.ingest",
+              "memory.update"
+            ],
+            "answer": "Memory has been updated to associate 'the space eye of the Andes' with the node 'Lumen'.",
+            "prompt_tokens": 2085,
+            "completion_tokens": 676
+          },
+          {
+            "i": 15,
             "tag": "teach2",
             "correct": true,
             "status": "OK",
@@ -4599,76 +4654,132 @@
               "memory.update"
             ],
             "answer": "The memory has been successfully updated to associate 'Andean sky observatory in orbit' with node 'Lumen'.",
-            "prompt_tokens": 1964,
-            "completion_tokens": 887
-          },
-          {
-            "i": 12,
-            "tag": "recall_quorum",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.recall"
-            ],
-            "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
-            "prompt_tokens": 1251,
-            "completion_tokens": 473
-          },
-          {
-            "i": 13,
-            "tag": "recall_quorum",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.recall"
-            ],
-            "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
-            "prompt_tokens": 1250,
-            "completion_tokens": 473
-          },
-          {
-            "i": 14,
-            "tag": "recall_quorum",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.recall"
-            ],
-            "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
-            "prompt_tokens": 1250,
-            "completion_tokens": 459
-          },
-          {
-            "i": 15,
-            "tag": "recall_usage",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.recall"
-            ],
-            "answer": "Andes Space Agency operates Kestrel.",
-            "prompt_tokens": 1147,
-            "completion_tokens": 279
+            "prompt_tokens": 2091,
+            "completion_tokens": 769
           },
           {
             "i": 16,
-            "tag": "recall_usage",
+            "tag": "teach2",
             "correct": true,
             "status": "OK",
             "finish_reason": "stop",
             "actions": [
-              "memory.recall"
+              "memory.ingest",
+              "memory.update"
             ],
-            "answer": "Andes Space Agency operates Kestrel.",
-            "prompt_tokens": 1147,
-            "completion_tokens": 279
+            "answer": "The memory has been successfully updated to associate 'Andean sky observatory in orbit' with node 'Lumen'.",
+            "prompt_tokens": 2088,
+            "completion_tokens": 728
           },
           {
             "i": 17,
+            "tag": "teach2",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.ingest",
+              "memory.update"
+            ],
+            "answer": "The memory has been successfully updated to associate 'Andean sky observatory in orbit' with node 'Lumen'.",
+            "prompt_tokens": 2088,
+            "completion_tokens": 723
+          },
+          {
+            "i": 18,
+            "tag": "teach2",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.ingest",
+              "memory.update"
+            ],
+            "answer": "The memory has been successfully updated to associate the query 'Andean sky observatory in orbit' with node 'Lumen'.",
+            "prompt_tokens": 2101,
+            "completion_tokens": 702
+          },
+          {
+            "i": 19,
+            "tag": "teach2",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.ingest",
+              "memory.update"
+            ],
+            "answer": "The memory has been successfully updated to associate 'Andean sky observatory in orbit' with node 'Lumen'.",
+            "prompt_tokens": 2089,
+            "completion_tokens": 725
+          },
+          {
+            "i": 20,
+            "tag": "recall_quorum",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
+            "prompt_tokens": 1332,
+            "completion_tokens": 495
+          },
+          {
+            "i": 21,
+            "tag": "recall_quorum",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
+            "prompt_tokens": 1330,
+            "completion_tokens": 578
+          },
+          {
+            "i": 22,
+            "tag": "recall_quorum",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
+            "prompt_tokens": 1334,
+            "completion_tokens": 511
+          },
+          {
+            "i": 23,
+            "tag": "recall_quorum",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
+            "prompt_tokens": 1334,
+            "completion_tokens": 588
+          },
+          {
+            "i": 24,
+            "tag": "recall_quorum",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
+            "prompt_tokens": 1333,
+            "completion_tokens": 573
+          },
+          {
+            "i": 25,
             "tag": "recall_usage",
             "correct": true,
             "status": "OK",
@@ -4677,11 +4788,63 @@
               "memory.recall"
             ],
             "answer": "Andes Space Agency operates Kestrel.",
-            "prompt_tokens": 1146,
-            "completion_tokens": 279
+            "prompt_tokens": 1226,
+            "completion_tokens": 374
           },
           {
-            "i": 18,
+            "i": 26,
+            "tag": "recall_usage",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "Andes Space Agency operates Kestrel.",
+            "prompt_tokens": 1228,
+            "completion_tokens": 319
+          },
+          {
+            "i": 27,
+            "tag": "recall_usage",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "Andes Space Agency operates Kestrel.",
+            "prompt_tokens": 1229,
+            "completion_tokens": 389
+          },
+          {
+            "i": 28,
+            "tag": "recall_usage",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "Andes Space Agency operates Kestrel.",
+            "prompt_tokens": 1229,
+            "completion_tokens": 414
+          },
+          {
+            "i": 29,
+            "tag": "recall_usage",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "Andes Space Agency operates Kestrel.",
+            "prompt_tokens": 1227,
+            "completion_tokens": 379
+          },
+          {
+            "i": 30,
             "tag": "recall_inhib",
             "correct": true,
             "status": "OK",
@@ -4689,12 +4852,12 @@
             "actions": [
               "memory.recall"
             ],
-            "answer": "The memory recall identified the Andes Space Agency, which is headquartered in Quito.",
-            "prompt_tokens": 1150,
-            "completion_tokens": 466
+            "answer": "The memory recall shows that the Andes Space Agency is headquartered in Quito and operates projects like Lumen and Kestrel.",
+            "prompt_tokens": 1226,
+            "completion_tokens": 380
           },
           {
-            "i": 19,
+            "i": 31,
             "tag": "recall_inhib",
             "correct": true,
             "status": "OK",
@@ -4702,12 +4865,38 @@
             "actions": [
               "memory.recall"
             ],
-            "answer": "The memory recall identified the Andes Space Agency, which is headquartered in Quito.",
-            "prompt_tokens": 1149,
-            "completion_tokens": 466
+            "answer": "The memory recall found facts linking the Andes Space Agency to Quito.",
+            "prompt_tokens": 1232,
+            "completion_tokens": 314
           },
           {
-            "i": 20,
+            "i": 32,
+            "tag": "recall_inhib",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "The memory recall found facts linking the Andes Space Agency to Quito.",
+            "prompt_tokens": 1230,
+            "completion_tokens": 314
+          },
+          {
+            "i": 33,
+            "tag": "recall_inhib",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall"
+            ],
+            "answer": "The memory recall found facts linking the Andes Space Agency to Quito.",
+            "prompt_tokens": 1230,
+            "completion_tokens": 314
+          },
+          {
+            "i": 34,
             "tag": "recall_inhib",
             "correct": true,
             "status": "OK",
@@ -4716,283 +4905,453 @@
               "memory.recall"
             ],
             "answer": "The memory recall indicates that the Andes Space Agency is headquartered in Quito.",
-            "prompt_tokens": 1146,
-            "completion_tokens": 455
-          },
-          {
-            "i": 21,
-            "tag": "recall_sdm",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.recall"
-            ],
-            "answer": "The memory recall successfully found 'lunar rover' with a Hamming distance of 64.",
-            "prompt_tokens": 924,
-            "completion_tokens": 297
-          },
-          {
-            "i": 22,
-            "tag": "recall_sdm",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.recall"
-            ],
-            "answer": "The memory recall successfully found 'lunar rover' with a score of 0.015385.",
-            "prompt_tokens": 925,
-            "completion_tokens": 302
-          },
-          {
-            "i": 23,
-            "tag": "recall_sdm",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.recall"
-            ],
-            "answer": "The memory recall successfully found 'lunar rover' with a score of 0.015385.",
-            "prompt_tokens": 924,
-            "completion_tokens": 302
-          },
-          {
-            "i": 24,
-            "tag": "flyvec_train",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.flyvec_train",
-              "memory.flyvec_train"
-            ],
-            "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
-            "prompt_tokens": 1732,
-            "completion_tokens": 397
-          },
-          {
-            "i": 25,
-            "tag": "flyvec_train",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.flyvec_train",
-              "memory.flyvec_train"
-            ],
-            "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
-            "prompt_tokens": 1736,
-            "completion_tokens": 404
-          },
-          {
-            "i": 26,
-            "tag": "flyvec_train",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.flyvec_train",
-              "memory.flyvec_train"
-            ],
-            "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
-            "prompt_tokens": 1734,
-            "completion_tokens": 397
-          },
-          {
-            "i": 27,
-            "tag": "recall_flyvec",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.recall",
-              "memory.recall"
-            ],
-            "answer": "The memory recall for 'telescope' returned 5 nodes and 6 facts, including \"orbital telescope\" and \"Lumen\".",
-            "prompt_tokens": 2072,
-            "completion_tokens": 616
-          },
-          {
-            "i": 28,
-            "tag": "recall_flyvec",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.recall",
-              "memory.recall"
-            ],
-            "answer": "The memory recall for 'telescope' returned 5 nodes and 6 facts, including \"orbital telescope\" and \"Lumen\".",
-            "prompt_tokens": 2067,
-            "completion_tokens": 603
-          },
-          {
-            "i": 29,
-            "tag": "recall_flyvec",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.recall",
-              "memory.recall"
-            ],
-            "answer": "The memory recall found 5 related nodes and 6 facts for 'telescope' using the flyvec encoder.",
-            "prompt_tokens": 2063,
-            "completion_tokens": 622
-          },
-          {
-            "i": 30,
-            "tag": "consolidate",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.consolidate",
-              "memory.consolidate"
-            ],
-            "answer": "The memory consolidation returned a status of OK, reporting that 0 items were decayed and 0 were pruned, while 2 were replayed and 128 were captured.",
-            "prompt_tokens": 1807,
-            "completion_tokens": 779
-          },
-          {
-            "i": 31,
-            "tag": "consolidate",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.consolidate",
-              "memory.consolidate"
-            ],
-            "answer": "The memory consolidation was successful, reporting that 0 items were decayed and 0 were pruned, while 2 were replayed and 128 were captured.",
-            "prompt_tokens": 1798,
-            "completion_tokens": 658
-          },
-          {
-            "i": 32,
-            "tag": "consolidate",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "memory.consolidate",
-              "memory.consolidate"
-            ],
-            "answer": "The memory consolidation returned a status of OK, reporting that 0 items were decayed and 0 were pruned, while 2 were replayed and 128 were captured.",
-            "prompt_tokens": 1804,
-            "completion_tokens": 779
-          },
-          {
-            "i": 33,
-            "tag": "advise",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "meta.discover",
-              "meta.discover",
-              "meta.schema",
-              "meta.advise"
-            ],
-            "answer": "The tool advises a neutral approach for using `reason.solve` with those parameters, citing no evidence.",
-            "prompt_tokens": 13767,
-            "completion_tokens": 2288
-          },
-          {
-            "i": 34,
-            "tag": "advise",
-            "correct": true,
-            "status": "OK",
-            "finish_reason": "stop",
-            "actions": [
-              "reason.check",
-              "meta.discover",
-              "meta.advise"
-            ],
-            "answer": "The tool advises a neutral stance on using `reason.solve` for this task, citing no evidence.",
-            "prompt_tokens": 8989,
-            "completion_tokens": 2138
+            "prompt_tokens": 1229,
+            "completion_tokens": 434
           },
           {
             "i": 35,
-            "tag": "advise",
-            "correct": false,
+            "tag": "recall_sdm",
+            "correct": true,
             "status": "OK",
             "finish_reason": "stop",
             "actions": [
-              "reason.check",
-              "reason.solve"
+              "memory.recall"
             ],
-            "answer": "The tool requires specific constraints or an SMT2 formula instead of `n_vars` and `goal` to execute `reason.solve`.",
-            "prompt_tokens": 1953,
-            "completion_tokens": 1771
+            "answer": "The memory recall successfully found 'lunar rover' with a score of 0.015385.",
+            "prompt_tokens": 1007,
+            "completion_tokens": 312
           },
           {
             "i": 36,
-            "tag": "feedback",
+            "tag": "recall_sdm",
             "correct": true,
-            "status": "MAX_STEPS",
-            "finish_reason": "tool_calls",
+            "status": "OK",
+            "finish_reason": "stop",
             "actions": [
-              "meta.batch",
-              "memory.ingest",
-              "meta.batch",
-              "meta.batch",
-              "meta.feedback",
-              "meta.feedback"
+              "memory.recall"
             ],
-            "answer": "",
-            "prompt_tokens": 7477,
-            "completion_tokens": 4196
+            "answer": "The memory recall successfully retrieved 'lunar rover' using the 'sdm' mode.",
+            "prompt_tokens": 1006,
+            "completion_tokens": 278
           },
           {
             "i": 37,
-            "tag": "feedback",
+            "tag": "recall_sdm",
             "correct": true,
             "status": "OK",
             "finish_reason": "stop",
             "actions": [
-              "meta.feedback",
-              "meta.feedback"
+              "memory.recall"
             ],
-            "answer": "Feedback for the tool usage has been successfully recorded.",
-            "prompt_tokens": 2134,
-            "completion_tokens": 1605
+            "answer": "The memory recall successfully retrieved the entry 'lunar rover'.",
+            "prompt_tokens": 1007,
+            "completion_tokens": 296
           },
           {
             "i": 38,
-            "tag": "feedback",
-            "correct": false,
+            "tag": "recall_sdm",
+            "correct": true,
             "status": "OK",
             "finish_reason": "stop",
             "actions": [
-              "meta.batch",
-              "meta.batch",
-              "memory.ingest",
-              "memory.ingest"
+              "memory.recall"
             ],
-            "answer": "The feedback has been successfully recorded in the memory.",
-            "prompt_tokens": 5294,
-            "completion_tokens": 3943
+            "answer": "The memory recall successfully found 'lunar rover' with a score of 0.015385.",
+            "prompt_tokens": 1007,
+            "completion_tokens": 312
           },
           {
             "i": 39,
-            "tag": "advice_stats",
+            "tag": "recall_sdm",
             "correct": true,
             "status": "OK",
             "finish_reason": "stop",
             "actions": [
-              "meta.stats",
-              "meta.advice_stats"
+              "memory.recall"
             ],
-            "answer": "The learned advice statistics for `reason.solve` show one row for the model `gemma-4-e4b-q4km` with a success rate of 1.0.",
-            "prompt_tokens": 1869,
-            "completion_tokens": 453
+            "answer": "The memory recall successfully retrieved the entry 'lunar rover'.",
+            "prompt_tokens": 1006,
+            "completion_tokens": 296
           },
           {
             "i": 40,
+            "tag": "flyvec_train",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.flyvec_train"
+            ],
+            "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
+            "prompt_tokens": 1066,
+            "completion_tokens": 284
+          },
+          {
+            "i": 41,
+            "tag": "flyvec_train",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.flyvec_train"
+            ],
+            "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
+            "prompt_tokens": 1067,
+            "completion_tokens": 284
+          },
+          {
+            "i": 42,
+            "tag": "flyvec_train",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.flyvec_train"
+            ],
+            "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
+            "prompt_tokens": 1068,
+            "completion_tokens": 284
+          },
+          {
+            "i": 43,
+            "tag": "flyvec_train",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.flyvec_train"
+            ],
+            "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
+            "prompt_tokens": 1068,
+            "completion_tokens": 284
+          },
+          {
+            "i": 44,
+            "tag": "flyvec_train",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.flyvec_train"
+            ],
+            "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
+            "prompt_tokens": 1068,
+            "completion_tokens": 289
+          },
+          {
+            "i": 45,
+            "tag": "recall_flyvec",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall",
+              "memory.recall"
+            ],
+            "answer": "The memory recall for 'telescope' using the 'flyvec' encoder returned 5 nodes and 6 facts, including \"orbital telescope\" and \"Lumen\".",
+            "prompt_tokens": 2189,
+            "completion_tokens": 602
+          },
+          {
+            "i": 46,
+            "tag": "recall_flyvec",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall",
+              "memory.recall"
+            ],
+            "answer": "The memory recall for 'telescope' returned 5 related nodes and 6 facts, including \"orbital telescope\" and \"Lumen\".",
+            "prompt_tokens": 2199,
+            "completion_tokens": 713
+          },
+          {
+            "i": 47,
+            "tag": "recall_flyvec",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall",
+              "memory.recall"
+            ],
+            "answer": "The memory recall successfully retrieved 5 nodes and 6 facts related to 'telescope'.",
+            "prompt_tokens": 2199,
+            "completion_tokens": 656
+          },
+          {
+            "i": 48,
+            "tag": "recall_flyvec",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall",
+              "memory.recall"
+            ],
+            "answer": "The memory recall for 'telescope' returned 5 nodes and 6 facts, including \"orbital telescope\" and \"Lumen\".",
+            "prompt_tokens": 2202,
+            "completion_tokens": 754
+          },
+          {
+            "i": 49,
+            "tag": "recall_flyvec",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.recall",
+              "memory.recall"
+            ],
+            "answer": "The memory recall found 5 nodes and 6 facts related to 'telescope', including \"orbital telescope\" and \"Lumen\".",
+            "prompt_tokens": 2198,
+            "completion_tokens": 776
+          },
+          {
+            "i": 50,
+            "tag": "consolidate",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.consolidate"
+            ],
+            "answer": "The memory consolidation operation was successful, reporting 2 replayed items and 128 captured items.",
+            "prompt_tokens": 1062,
+            "completion_tokens": 310
+          },
+          {
+            "i": 51,
+            "tag": "consolidate",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.consolidate"
+            ],
+            "answer": "The memory consolidation operation was successful, reporting 2 replayed items and 128 captured items.",
+            "prompt_tokens": 1062,
+            "completion_tokens": 311
+          },
+          {
+            "i": 52,
+            "tag": "consolidate",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.consolidate"
+            ],
+            "answer": "The memory consolidation operation was successful, reporting 2 replayed items and 128 captured items.",
+            "prompt_tokens": 1062,
+            "completion_tokens": 310
+          },
+          {
+            "i": 53,
+            "tag": "consolidate",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.consolidate"
+            ],
+            "answer": "The memory consolidation operation was successful, reporting 2 replayed items and 128 captured items.",
+            "prompt_tokens": 1063,
+            "completion_tokens": 311
+          },
+          {
+            "i": 54,
+            "tag": "consolidate",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "memory.consolidate"
+            ],
+            "answer": "The memory consolidation operation was successful, reporting 2 replayed items and 128 captured items.",
+            "prompt_tokens": 1062,
+            "completion_tokens": 311
+          },
+          {
+            "i": 55,
+            "tag": "advise",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "meta.advise",
+              "meta.advise"
+            ],
+            "answer": "The tool advises that using `reason.solve` for this task is neutral, suggesting it is suitable for small SAT tasks.",
+            "prompt_tokens": 2139,
+            "completion_tokens": 944
+          },
+          {
+            "i": 56,
+            "tag": "advise",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "meta.advise",
+              "meta.advise"
+            ],
+            "answer": "The tool advises that using `reason.solve` is neutral for this task, as it involves about 6 or fewer comparisons and only asks for any valid values.",
+            "prompt_tokens": 2079,
+            "completion_tokens": 1329
+          },
+          {
+            "i": 57,
+            "tag": "advise",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "meta.advise",
+              "meta.advise"
+            ],
+            "answer": "The tool advises that using `reason.solve` is neutral for this task.",
+            "prompt_tokens": 2144,
+            "completion_tokens": 1173
+          },
+          {
+            "i": 58,
+            "tag": "advise",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "meta.advise",
+              "meta.advise"
+            ],
+            "answer": "The tool advises a neutral stance on using `reason.solve` for this task, citing no evidence.",
+            "prompt_tokens": 2045,
+            "completion_tokens": 1083
+          },
+          {
+            "i": 59,
+            "tag": "advise",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "meta.advise",
+              "meta.advise"
+            ],
+            "answer": "The tool advises that using `reason.solve` for this task is neutral, suggesting it is suitable for small SAT tasks.",
+            "prompt_tokens": 2143,
+            "completion_tokens": 1126
+          },
+          {
+            "i": 60,
+            "tag": "feedback",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "meta.feedback"
+            ],
+            "answer": "Feedback for the specified action has been successfully recorded.",
+            "prompt_tokens": 1204,
+            "completion_tokens": 282
+          },
+          {
+            "i": 61,
+            "tag": "feedback",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "meta.feedback"
+            ],
+            "answer": "Feedback for the specified action has been successfully recorded.",
+            "prompt_tokens": 1204,
+            "completion_tokens": 282
+          },
+          {
+            "i": 62,
+            "tag": "feedback",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "meta.feedback"
+            ],
+            "answer": "Feedback for the specified action has been successfully recorded.",
+            "prompt_tokens": 1204,
+            "completion_tokens": 282
+          },
+          {
+            "i": 63,
+            "tag": "feedback",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "meta.feedback"
+            ],
+            "answer": "Feedback for the specified action has been successfully recorded.",
+            "prompt_tokens": 1205,
+            "completion_tokens": 282
+          },
+          {
+            "i": 64,
+            "tag": "feedback",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "meta.feedback"
+            ],
+            "answer": "Feedback for the specified action has been successfully recorded.",
+            "prompt_tokens": 1204,
+            "completion_tokens": 282
+          },
+          {
+            "i": 65,
+            "tag": "advice_stats",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "meta.stats",
+              "meta.advice_stats"
+            ],
+            "answer": "The learned advice statistics for `reason.solve` show one row for the model `gemma-4-e4b-q4km` where the action was used successfully once.",
+            "prompt_tokens": 1993,
+            "completion_tokens": 413
+          },
+          {
+            "i": 66,
+            "tag": "advice_stats",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "meta.stats",
+              "meta.advice_stats"
+            ],
+            "answer": "The learned advice statistics for `reason.solve` show one row for the model `gemma-4-e4b-q4km`, indicating 1 success and 0 failures.",
+            "prompt_tokens": 1997,
+            "completion_tokens": 431
+          },
+          {
+            "i": 67,
+            "tag": "advice_stats",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "meta.stats",
+              "meta.advice_stats"
+            ],
+            "answer": "The learned advice statistics for `reason.solve` show one row for the model `gemma-4-e4b-q4km` where the action was used successfully once.",
+            "prompt_tokens": 1991,
+            "completion_tokens": 401
+          },
+          {
+            "i": 68,
             "tag": "advice_stats",
             "correct": true,
             "status": "OK",
@@ -5002,11 +5361,11 @@
               "meta.advice_stats"
             ],
             "answer": "The learned advice statistics for `reason.solve` show one row for the model `gemma-4-e4b-q4km` with a success rate of 1.0.",
-            "prompt_tokens": 1873,
-            "completion_tokens": 441
+            "prompt_tokens": 1993,
+            "completion_tokens": 420
           },
           {
-            "i": 41,
+            "i": 69,
             "tag": "advice_stats",
             "correct": true,
             "status": "OK",
@@ -5015,149 +5374,172 @@
               "meta.stats",
               "meta.advice_stats"
             ],
-            "answer": "The learned advice statistics for `reason.solve` show one row for `gemma-4-e4b-q4km` with a success rate of 1.0.",
-            "prompt_tokens": 1870,
-            "completion_tokens": 446
+            "answer": "The learned advice statistics for `reason.solve` show one row for the model `gemma-4-e4b-q4km` with a success rate of 1.0.",
+            "prompt_tokens": 1997,
+            "completion_tokens": 420
           },
           {
-            "i": 42,
+            "i": 70,
             "tag": "advice_reset",
             "correct": true,
             "status": "OK",
             "finish_reason": "stop",
             "actions": [
-              "meta.advice_reset",
               "meta.advice_reset"
             ],
             "answer": "The learned advice for 'reason.solve' has been successfully reset.",
-            "prompt_tokens": 1801,
-            "completion_tokens": 937
+            "prompt_tokens": 1007,
+            "completion_tokens": 733
           },
           {
-            "i": 43,
+            "i": 71,
             "tag": "advice_reset",
             "correct": true,
             "status": "OK",
             "finish_reason": "stop",
             "actions": [
-              "meta.advice_reset",
               "meta.advice_reset"
             ],
             "answer": "The learned advice for 'reason.solve' has been successfully reset.",
-            "prompt_tokens": 1799,
-            "completion_tokens": 941
+            "prompt_tokens": 1008,
+            "completion_tokens": 849
           },
           {
-            "i": 44,
+            "i": 72,
             "tag": "advice_reset",
             "correct": true,
             "status": "OK",
             "finish_reason": "stop",
             "actions": [
-              "meta.advice_reset",
               "meta.advice_reset"
             ],
             "answer": "The learned advice for 'reason.solve' has been successfully reset.",
-            "prompt_tokens": 1789,
-            "completion_tokens": 799
+            "prompt_tokens": 1003,
+            "completion_tokens": 767
+          },
+          {
+            "i": 73,
+            "tag": "advice_reset",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "meta.advice_reset"
+            ],
+            "answer": "The learned advice for 'reason.solve' has been successfully reset.",
+            "prompt_tokens": 1007,
+            "completion_tokens": 271
+          },
+          {
+            "i": 74,
+            "tag": "advice_reset",
+            "correct": true,
+            "status": "OK",
+            "finish_reason": "stop",
+            "actions": [
+              "meta.advice_reset"
+            ],
+            "answer": "The learned advice for 'reason.solve' has been successfully reset.",
+            "prompt_tokens": 1007,
+            "completion_tokens": 306
           }
         ],
-        "reps": 3,
+        "reps": 5,
         "per_step": {
           "handshake": {
-            "k": 1,
-            "n": 3,
-            "called": 1,
-            "server_ok": 1
+            "k": 5,
+            "n": 5,
+            "called": 5,
+            "server_ok": 5
           },
           "ingest": {
-            "k": 3,
-            "n": 3,
-            "called": 3,
-            "server_ok": 3
+            "k": 5,
+            "n": 5,
+            "called": 5,
+            "server_ok": 5
           },
           "teach1": {
-            "k": 3,
-            "n": 3,
-            "called": 3,
-            "server_ok": 3
+            "k": 5,
+            "n": 5,
+            "called": 5,
+            "server_ok": 5
           },
           "teach2": {
-            "k": 3,
-            "n": 3,
-            "called": 3,
-            "server_ok": 3
+            "k": 5,
+            "n": 5,
+            "called": 5,
+            "server_ok": 5
           },
           "recall_quorum": {
-            "k": 3,
-            "n": 3,
-            "called": 3,
-            "server_ok": 3
+            "k": 5,
+            "n": 5,
+            "called": 5,
+            "server_ok": 5
           },
           "recall_usage": {
-            "k": 3,
-            "n": 3,
-            "called": 3,
-            "server_ok": 3
+            "k": 5,
+            "n": 5,
+            "called": 5,
+            "server_ok": 5
           },
           "recall_inhib": {
-            "k": 3,
-            "n": 3,
-            "called": 3,
-            "server_ok": 3
+            "k": 5,
+            "n": 5,
+            "called": 5,
+            "server_ok": 5
           },
           "recall_sdm": {
-            "k": 3,
-            "n": 3,
-            "called": 3,
-            "server_ok": 3
+            "k": 5,
+            "n": 5,
+            "called": 5,
+            "server_ok": 5
           },
           "flyvec_train": {
-            "k": 3,
-            "n": 3,
-            "called": 3,
-            "server_ok": 3
+            "k": 5,
+            "n": 5,
+            "called": 5,
+            "server_ok": 5
           },
           "recall_flyvec": {
-            "k": 3,
-            "n": 3,
-            "called": 3,
-            "server_ok": 3
+            "k": 5,
+            "n": 5,
+            "called": 5,
+            "server_ok": 5
           },
           "consolidate": {
-            "k": 3,
-            "n": 3,
-            "called": 3,
-            "server_ok": 3
+            "k": 5,
+            "n": 5,
+            "called": 5,
+            "server_ok": 5
           },
           "advise": {
-            "k": 2,
-            "n": 3,
-            "called": 2,
-            "server_ok": 2
+            "k": 5,
+            "n": 5,
+            "called": 5,
+            "server_ok": 5
           },
           "feedback": {
-            "k": 2,
-            "n": 3,
-            "called": 3,
-            "server_ok": 2
+            "k": 5,
+            "n": 5,
+            "called": 5,
+            "server_ok": 5
           },
           "advice_stats": {
-            "k": 3,
-            "n": 3,
-            "called": 3,
-            "server_ok": 3
+            "k": 5,
+            "n": 5,
+            "called": 5,
+            "server_ok": 5
           },
           "advice_reset": {
-            "k": 3,
-            "n": 3,
-            "called": 3,
-            "server_ok": 3
+            "k": 5,
+            "n": 5,
+            "called": 5,
+            "server_ok": 5
           }
         },
         "total": {
-          "k": 41,
-          "n": 45
+          "k": 75,
+          "n": 75
         },
         "bio_defaults": "all"
       }
@@ -12086,95 +12468,94 @@
       },
       "H-bio": {
         "bio": {
-          "n": 45,
-          "accuracy": 0.9111,
+          "n": 75,
+          "accuracy": 1.0,
           "truncated_rate": 0.0,
           "statuses": [
-            "MAX_STEPS",
             "OK"
           ],
-          "mean_prompt_tokens": 2244.1,
-          "mean_completion_tokens": 871.0,
-          "mean_reasoning_chars": 2794.8,
-          "mean_tool_calls": 1.82,
-          "mean_tool_bytes": 1693.9,
-          "mean_wall_s": 69.19,
-          "reason_use_rate": 0.0444,
+          "mean_prompt_tokens": 1516.7,
+          "mean_completion_tokens": 510.9,
+          "mean_reasoning_chars": 1532.4,
+          "mean_tool_calls": 1.37,
+          "mean_tool_bytes": 904.1,
+          "mean_wall_s": 41.5,
+          "reason_use_rate": 0.0,
           "memory_use_rate": 0.3333,
-          "handshake_first_rate": 0.0222,
+          "handshake_first_rate": 0.0667,
           "by_subset": {
             "handshake": {
-              "n": 3,
-              "accuracy": 0.3333,
+              "n": 5,
+              "accuracy": 1.0,
               "reason_use_rate": 0.0
             },
             "ingest": {
-              "n": 3,
+              "n": 5,
               "accuracy": 1.0,
               "reason_use_rate": 0.0
             },
             "teach1": {
-              "n": 3,
+              "n": 5,
               "accuracy": 1.0,
               "reason_use_rate": 0.0
             },
             "teach2": {
-              "n": 3,
+              "n": 5,
               "accuracy": 1.0,
               "reason_use_rate": 0.0
             },
             "recall_quorum": {
-              "n": 3,
+              "n": 5,
               "accuracy": 1.0,
               "reason_use_rate": 0.0
             },
             "recall_usage": {
-              "n": 3,
+              "n": 5,
               "accuracy": 1.0,
               "reason_use_rate": 0.0
             },
             "recall_inhib": {
-              "n": 3,
+              "n": 5,
               "accuracy": 1.0,
               "reason_use_rate": 0.0
             },
             "recall_sdm": {
-              "n": 3,
+              "n": 5,
               "accuracy": 1.0,
               "reason_use_rate": 0.0
             },
             "flyvec_train": {
-              "n": 3,
+              "n": 5,
               "accuracy": 1.0,
               "reason_use_rate": 0.0
             },
             "recall_flyvec": {
-              "n": 3,
+              "n": 5,
               "accuracy": 1.0,
               "reason_use_rate": 0.0
             },
             "consolidate": {
-              "n": 3,
+              "n": 5,
               "accuracy": 1.0,
               "reason_use_rate": 0.0
             },
             "advise": {
-              "n": 3,
-              "accuracy": 0.6667,
-              "reason_use_rate": 0.6667
+              "n": 5,
+              "accuracy": 1.0,
+              "reason_use_rate": 0.0
             },
             "feedback": {
-              "n": 3,
-              "accuracy": 0.6667,
+              "n": 5,
+              "accuracy": 1.0,
               "reason_use_rate": 0.0
             },
             "advice_stats": {
-              "n": 3,
+              "n": 5,
               "accuracy": 1.0,
               "reason_use_rate": 0.0
             },
             "advice_reset": {
-              "n": 3,
+              "n": 5,
               "accuracy": 1.0,
               "reason_use_rate": 0.0
             }
@@ -12183,13 +12564,15 @@
             {
               "i": 0,
               "tag": "handshake",
-              "correct": false,
+              "correct": true,
               "status": "OK",
               "finish_reason": "stop",
-              "actions": [],
-              "answer": "I am model 'gemma-4-e4b-q4km', family 'gemma', with params_b 4.0.",
-              "prompt_tokens": 332,
-              "completion_tokens": 541
+              "actions": [
+                "meta.handshake"
+              ],
+              "answer": "I have successfully declared my profile to the tool.",
+              "prompt_tokens": 1314,
+              "completion_tokens": 227
             },
             {
               "i": 1,
@@ -12200,48 +12583,49 @@
               "actions": [
                 "meta.handshake"
               ],
-              "answer": "I have successfully declared myself to the tool as model 'gemma-4-e4b-q4km'.",
-              "prompt_tokens": 1232,
-              "completion_tokens": 674
+              "answer": "I have successfully declared my profile to the tool.",
+              "prompt_tokens": 1314,
+              "completion_tokens": 227
             },
             {
               "i": 2,
               "tag": "handshake",
-              "correct": false,
+              "correct": true,
               "status": "OK",
               "finish_reason": "stop",
-              "actions": [],
-              "answer": "I am model 'gemma-4-e4b-q4km' from the 'gemma' family with params_b 4.0.",
-              "prompt_tokens": 332,
-              "completion_tokens": 363
+              "actions": [
+                "meta.handshake"
+              ],
+              "answer": "I have successfully declared my profile to the tool.",
+              "prompt_tokens": 1312,
+              "completion_tokens": 227
             },
             {
               "i": 3,
-              "tag": "ingest",
+              "tag": "handshake",
               "correct": true,
               "status": "OK",
               "finish_reason": "stop",
               "actions": [
-                "memory.ingest",
-                "memory.ingest"
+                "meta.handshake"
               ],
-              "answer": "The facts have been successfully stored in memory as triples.",
-              "prompt_tokens": 2164,
-              "completion_tokens": 1059
+              "answer": "I have successfully declared my profile to the tool.",
+              "prompt_tokens": 1314,
+              "completion_tokens": 253
             },
             {
               "i": 4,
-              "tag": "ingest",
+              "tag": "handshake",
               "correct": true,
               "status": "OK",
               "finish_reason": "stop",
               "actions": [
-                "memory.ingest",
-                "memory.ingest"
+                "meta.handshake",
+                "meta.handshake"
               ],
-              "answer": "The facts have been successfully stored in memory as triples.",
-              "prompt_tokens": 2165,
-              "completion_tokens": 1059
+              "answer": "I have successfully declared myself to the tool as model 'gemma-4-e4b-q4km'.",
+              "prompt_tokens": 2159,
+              "completion_tokens": 531
             },
             {
               "i": 5,
@@ -12254,39 +12638,64 @@
                 "memory.ingest"
               ],
               "answer": "The facts have been successfully stored in memory as triples.",
-              "prompt_tokens": 2165,
-              "completion_tokens": 1011
+              "prompt_tokens": 2287,
+              "completion_tokens": 989
             },
             {
               "i": 6,
-              "tag": "teach1",
+              "tag": "ingest",
               "correct": true,
               "status": "OK",
               "finish_reason": "stop",
               "actions": [
                 "memory.ingest",
-                "memory.update"
+                "memory.ingest"
               ],
-              "answer": "Memory has been updated to associate 'the space eye of the Andes' with the node 'Lumen'.",
-              "prompt_tokens": 1948,
-              "completion_tokens": 705
+              "answer": "The facts have been successfully stored in memory as triples.",
+              "prompt_tokens": 2211,
+              "completion_tokens": 972
             },
             {
               "i": 7,
-              "tag": "teach1",
+              "tag": "ingest",
               "correct": true,
               "status": "OK",
               "finish_reason": "stop",
               "actions": [
-                "memory.ingest",
-                "memory.update"
+                "memory.ingest"
               ],
-              "answer": "Memory has been updated to associate 'the space eye of the Andes' with the node 'Lumen'.",
-              "prompt_tokens": 1950,
-              "completion_tokens": 707
+              "answer": "The facts have been successfully stored in memory as triples.",
+              "prompt_tokens": 1255,
+              "completion_tokens": 468
             },
             {
               "i": 8,
+              "tag": "ingest",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.ingest"
+              ],
+              "answer": "The facts have been successfully stored in memory as triples.",
+              "prompt_tokens": 1253,
+              "completion_tokens": 463
+            },
+            {
+              "i": 9,
+              "tag": "ingest",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.ingest"
+              ],
+              "answer": "The facts have been successfully stored in memory as triples.",
+              "prompt_tokens": 1255,
+              "completion_tokens": 465
+            },
+            {
+              "i": 10,
               "tag": "teach1",
               "correct": true,
               "status": "OK",
@@ -12296,39 +12705,67 @@
                 "memory.update"
               ],
               "answer": "Memory has been updated to associate 'the space eye of the Andes' with the node 'Lumen'.",
-              "prompt_tokens": 1967,
-              "completion_tokens": 676
-            },
-            {
-              "i": 9,
-              "tag": "teach2",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.ingest",
-                "memory.update"
-              ],
-              "answer": "The memory has been successfully updated to associate 'Andean sky observatory in orbit' with node 'Lumen'.",
-              "prompt_tokens": 1965,
-              "completion_tokens": 884
-            },
-            {
-              "i": 10,
-              "tag": "teach2",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.ingest",
-                "memory.update"
-              ],
-              "answer": "The memory has been successfully updated to associate 'Andean sky observatory in orbit' with node 'Lumen'.",
-              "prompt_tokens": 1963,
-              "completion_tokens": 884
+              "prompt_tokens": 2090,
+              "completion_tokens": 684
             },
             {
               "i": 11,
+              "tag": "teach1",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.ingest",
+                "memory.update"
+              ],
+              "answer": "Memory has been updated to associate 'the space eye of the Andes' with the node 'Lumen'.",
+              "prompt_tokens": 2086,
+              "completion_tokens": 686
+            },
+            {
+              "i": 12,
+              "tag": "teach1",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.ingest",
+                "memory.update"
+              ],
+              "answer": "Memory has been updated to associate 'the space eye of the Andes' with the node 'Lumen'.",
+              "prompt_tokens": 2085,
+              "completion_tokens": 706
+            },
+            {
+              "i": 13,
+              "tag": "teach1",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.ingest",
+                "memory.update"
+              ],
+              "answer": "Memory has been updated to associate 'the space eye of the Andes' with the node 'Lumen'.",
+              "prompt_tokens": 2086,
+              "completion_tokens": 668
+            },
+            {
+              "i": 14,
+              "tag": "teach1",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.ingest",
+                "memory.update"
+              ],
+              "answer": "Memory has been updated to associate 'the space eye of the Andes' with the node 'Lumen'.",
+              "prompt_tokens": 2085,
+              "completion_tokens": 676
+            },
+            {
+              "i": 15,
               "tag": "teach2",
               "correct": true,
               "status": "OK",
@@ -12338,76 +12775,132 @@
                 "memory.update"
               ],
               "answer": "The memory has been successfully updated to associate 'Andean sky observatory in orbit' with node 'Lumen'.",
-              "prompt_tokens": 1964,
-              "completion_tokens": 887
-            },
-            {
-              "i": 12,
-              "tag": "recall_quorum",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.recall"
-              ],
-              "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
-              "prompt_tokens": 1251,
-              "completion_tokens": 473
-            },
-            {
-              "i": 13,
-              "tag": "recall_quorum",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.recall"
-              ],
-              "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
-              "prompt_tokens": 1250,
-              "completion_tokens": 473
-            },
-            {
-              "i": 14,
-              "tag": "recall_quorum",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.recall"
-              ],
-              "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
-              "prompt_tokens": 1250,
-              "completion_tokens": 459
-            },
-            {
-              "i": 15,
-              "tag": "recall_usage",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.recall"
-              ],
-              "answer": "Andes Space Agency operates Kestrel.",
-              "prompt_tokens": 1147,
-              "completion_tokens": 279
+              "prompt_tokens": 2091,
+              "completion_tokens": 769
             },
             {
               "i": 16,
-              "tag": "recall_usage",
+              "tag": "teach2",
               "correct": true,
               "status": "OK",
               "finish_reason": "stop",
               "actions": [
-                "memory.recall"
+                "memory.ingest",
+                "memory.update"
               ],
-              "answer": "Andes Space Agency operates Kestrel.",
-              "prompt_tokens": 1147,
-              "completion_tokens": 279
+              "answer": "The memory has been successfully updated to associate 'Andean sky observatory in orbit' with node 'Lumen'.",
+              "prompt_tokens": 2088,
+              "completion_tokens": 728
             },
             {
               "i": 17,
+              "tag": "teach2",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.ingest",
+                "memory.update"
+              ],
+              "answer": "The memory has been successfully updated to associate 'Andean sky observatory in orbit' with node 'Lumen'.",
+              "prompt_tokens": 2088,
+              "completion_tokens": 723
+            },
+            {
+              "i": 18,
+              "tag": "teach2",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.ingest",
+                "memory.update"
+              ],
+              "answer": "The memory has been successfully updated to associate the query 'Andean sky observatory in orbit' with node 'Lumen'.",
+              "prompt_tokens": 2101,
+              "completion_tokens": 702
+            },
+            {
+              "i": 19,
+              "tag": "teach2",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.ingest",
+                "memory.update"
+              ],
+              "answer": "The memory has been successfully updated to associate 'Andean sky observatory in orbit' with node 'Lumen'.",
+              "prompt_tokens": 2089,
+              "completion_tokens": 725
+            },
+            {
+              "i": 20,
+              "tag": "recall_quorum",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall"
+              ],
+              "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
+              "prompt_tokens": 1332,
+              "completion_tokens": 495
+            },
+            {
+              "i": 21,
+              "tag": "recall_quorum",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall"
+              ],
+              "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
+              "prompt_tokens": 1330,
+              "completion_tokens": 578
+            },
+            {
+              "i": 22,
+              "tag": "recall_quorum",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall"
+              ],
+              "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
+              "prompt_tokens": 1334,
+              "completion_tokens": 511
+            },
+            {
+              "i": 23,
+              "tag": "recall_quorum",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall"
+              ],
+              "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
+              "prompt_tokens": 1334,
+              "completion_tokens": 588
+            },
+            {
+              "i": 24,
+              "tag": "recall_quorum",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall"
+              ],
+              "answer": "Yes, Lumen is learned and its learned status is 'confirmed'.",
+              "prompt_tokens": 1333,
+              "completion_tokens": 573
+            },
+            {
+              "i": 25,
               "tag": "recall_usage",
               "correct": true,
               "status": "OK",
@@ -12416,11 +12909,63 @@
                 "memory.recall"
               ],
               "answer": "Andes Space Agency operates Kestrel.",
-              "prompt_tokens": 1146,
-              "completion_tokens": 279
+              "prompt_tokens": 1226,
+              "completion_tokens": 374
             },
             {
-              "i": 18,
+              "i": 26,
+              "tag": "recall_usage",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall"
+              ],
+              "answer": "Andes Space Agency operates Kestrel.",
+              "prompt_tokens": 1228,
+              "completion_tokens": 319
+            },
+            {
+              "i": 27,
+              "tag": "recall_usage",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall"
+              ],
+              "answer": "Andes Space Agency operates Kestrel.",
+              "prompt_tokens": 1229,
+              "completion_tokens": 389
+            },
+            {
+              "i": 28,
+              "tag": "recall_usage",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall"
+              ],
+              "answer": "Andes Space Agency operates Kestrel.",
+              "prompt_tokens": 1229,
+              "completion_tokens": 414
+            },
+            {
+              "i": 29,
+              "tag": "recall_usage",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall"
+              ],
+              "answer": "Andes Space Agency operates Kestrel.",
+              "prompt_tokens": 1227,
+              "completion_tokens": 379
+            },
+            {
+              "i": 30,
               "tag": "recall_inhib",
               "correct": true,
               "status": "OK",
@@ -12428,12 +12973,12 @@
               "actions": [
                 "memory.recall"
               ],
-              "answer": "The memory recall identified the Andes Space Agency, which is headquartered in Quito.",
-              "prompt_tokens": 1150,
-              "completion_tokens": 466
+              "answer": "The memory recall shows that the Andes Space Agency is headquartered in Quito and operates projects like Lumen and Kestrel.",
+              "prompt_tokens": 1226,
+              "completion_tokens": 380
             },
             {
-              "i": 19,
+              "i": 31,
               "tag": "recall_inhib",
               "correct": true,
               "status": "OK",
@@ -12441,12 +12986,38 @@
               "actions": [
                 "memory.recall"
               ],
-              "answer": "The memory recall identified the Andes Space Agency, which is headquartered in Quito.",
-              "prompt_tokens": 1149,
-              "completion_tokens": 466
+              "answer": "The memory recall found facts linking the Andes Space Agency to Quito.",
+              "prompt_tokens": 1232,
+              "completion_tokens": 314
             },
             {
-              "i": 20,
+              "i": 32,
+              "tag": "recall_inhib",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall"
+              ],
+              "answer": "The memory recall found facts linking the Andes Space Agency to Quito.",
+              "prompt_tokens": 1230,
+              "completion_tokens": 314
+            },
+            {
+              "i": 33,
+              "tag": "recall_inhib",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall"
+              ],
+              "answer": "The memory recall found facts linking the Andes Space Agency to Quito.",
+              "prompt_tokens": 1230,
+              "completion_tokens": 314
+            },
+            {
+              "i": 34,
               "tag": "recall_inhib",
               "correct": true,
               "status": "OK",
@@ -12455,283 +13026,453 @@
                 "memory.recall"
               ],
               "answer": "The memory recall indicates that the Andes Space Agency is headquartered in Quito.",
-              "prompt_tokens": 1146,
-              "completion_tokens": 455
-            },
-            {
-              "i": 21,
-              "tag": "recall_sdm",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.recall"
-              ],
-              "answer": "The memory recall successfully found 'lunar rover' with a Hamming distance of 64.",
-              "prompt_tokens": 924,
-              "completion_tokens": 297
-            },
-            {
-              "i": 22,
-              "tag": "recall_sdm",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.recall"
-              ],
-              "answer": "The memory recall successfully found 'lunar rover' with a score of 0.015385.",
-              "prompt_tokens": 925,
-              "completion_tokens": 302
-            },
-            {
-              "i": 23,
-              "tag": "recall_sdm",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.recall"
-              ],
-              "answer": "The memory recall successfully found 'lunar rover' with a score of 0.015385.",
-              "prompt_tokens": 924,
-              "completion_tokens": 302
-            },
-            {
-              "i": 24,
-              "tag": "flyvec_train",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.flyvec_train",
-                "memory.flyvec_train"
-              ],
-              "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
-              "prompt_tokens": 1732,
-              "completion_tokens": 397
-            },
-            {
-              "i": 25,
-              "tag": "flyvec_train",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.flyvec_train",
-                "memory.flyvec_train"
-              ],
-              "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
-              "prompt_tokens": 1736,
-              "completion_tokens": 404
-            },
-            {
-              "i": 26,
-              "tag": "flyvec_train",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.flyvec_train",
-                "memory.flyvec_train"
-              ],
-              "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
-              "prompt_tokens": 1734,
-              "completion_tokens": 397
-            },
-            {
-              "i": 27,
-              "tag": "recall_flyvec",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.recall",
-                "memory.recall"
-              ],
-              "answer": "The memory recall for 'telescope' returned 5 nodes and 6 facts, including \"orbital telescope\" and \"Lumen\".",
-              "prompt_tokens": 2072,
-              "completion_tokens": 616
-            },
-            {
-              "i": 28,
-              "tag": "recall_flyvec",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.recall",
-                "memory.recall"
-              ],
-              "answer": "The memory recall for 'telescope' returned 5 nodes and 6 facts, including \"orbital telescope\" and \"Lumen\".",
-              "prompt_tokens": 2067,
-              "completion_tokens": 603
-            },
-            {
-              "i": 29,
-              "tag": "recall_flyvec",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.recall",
-                "memory.recall"
-              ],
-              "answer": "The memory recall found 5 related nodes and 6 facts for 'telescope' using the flyvec encoder.",
-              "prompt_tokens": 2063,
-              "completion_tokens": 622
-            },
-            {
-              "i": 30,
-              "tag": "consolidate",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.consolidate",
-                "memory.consolidate"
-              ],
-              "answer": "The memory consolidation returned a status of OK, reporting that 0 items were decayed and 0 were pruned, while 2 were replayed and 128 were captured.",
-              "prompt_tokens": 1807,
-              "completion_tokens": 779
-            },
-            {
-              "i": 31,
-              "tag": "consolidate",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.consolidate",
-                "memory.consolidate"
-              ],
-              "answer": "The memory consolidation was successful, reporting that 0 items were decayed and 0 were pruned, while 2 were replayed and 128 were captured.",
-              "prompt_tokens": 1798,
-              "completion_tokens": 658
-            },
-            {
-              "i": 32,
-              "tag": "consolidate",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "memory.consolidate",
-                "memory.consolidate"
-              ],
-              "answer": "The memory consolidation returned a status of OK, reporting that 0 items were decayed and 0 were pruned, while 2 were replayed and 128 were captured.",
-              "prompt_tokens": 1804,
-              "completion_tokens": 779
-            },
-            {
-              "i": 33,
-              "tag": "advise",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "meta.discover",
-                "meta.discover",
-                "meta.schema",
-                "meta.advise"
-              ],
-              "answer": "The tool advises a neutral approach for using `reason.solve` with those parameters, citing no evidence.",
-              "prompt_tokens": 13767,
-              "completion_tokens": 2288
-            },
-            {
-              "i": 34,
-              "tag": "advise",
-              "correct": true,
-              "status": "OK",
-              "finish_reason": "stop",
-              "actions": [
-                "reason.check",
-                "meta.discover",
-                "meta.advise"
-              ],
-              "answer": "The tool advises a neutral stance on using `reason.solve` for this task, citing no evidence.",
-              "prompt_tokens": 8989,
-              "completion_tokens": 2138
+              "prompt_tokens": 1229,
+              "completion_tokens": 434
             },
             {
               "i": 35,
-              "tag": "advise",
-              "correct": false,
+              "tag": "recall_sdm",
+              "correct": true,
               "status": "OK",
               "finish_reason": "stop",
               "actions": [
-                "reason.check",
-                "reason.solve"
+                "memory.recall"
               ],
-              "answer": "The tool requires specific constraints or an SMT2 formula instead of `n_vars` and `goal` to execute `reason.solve`.",
-              "prompt_tokens": 1953,
-              "completion_tokens": 1771
+              "answer": "The memory recall successfully found 'lunar rover' with a score of 0.015385.",
+              "prompt_tokens": 1007,
+              "completion_tokens": 312
             },
             {
               "i": 36,
-              "tag": "feedback",
+              "tag": "recall_sdm",
               "correct": true,
-              "status": "MAX_STEPS",
-              "finish_reason": "tool_calls",
+              "status": "OK",
+              "finish_reason": "stop",
               "actions": [
-                "meta.batch",
-                "memory.ingest",
-                "meta.batch",
-                "meta.batch",
-                "meta.feedback",
-                "meta.feedback"
+                "memory.recall"
               ],
-              "answer": "",
-              "prompt_tokens": 7477,
-              "completion_tokens": 4196
+              "answer": "The memory recall successfully retrieved 'lunar rover' using the 'sdm' mode.",
+              "prompt_tokens": 1006,
+              "completion_tokens": 278
             },
             {
               "i": 37,
-              "tag": "feedback",
+              "tag": "recall_sdm",
               "correct": true,
               "status": "OK",
               "finish_reason": "stop",
               "actions": [
-                "meta.feedback",
-                "meta.feedback"
+                "memory.recall"
               ],
-              "answer": "Feedback for the tool usage has been successfully recorded.",
-              "prompt_tokens": 2134,
-              "completion_tokens": 1605
+              "answer": "The memory recall successfully retrieved the entry 'lunar rover'.",
+              "prompt_tokens": 1007,
+              "completion_tokens": 296
             },
             {
               "i": 38,
-              "tag": "feedback",
-              "correct": false,
+              "tag": "recall_sdm",
+              "correct": true,
               "status": "OK",
               "finish_reason": "stop",
               "actions": [
-                "meta.batch",
-                "meta.batch",
-                "memory.ingest",
-                "memory.ingest"
+                "memory.recall"
               ],
-              "answer": "The feedback has been successfully recorded in the memory.",
-              "prompt_tokens": 5294,
-              "completion_tokens": 3943
+              "answer": "The memory recall successfully found 'lunar rover' with a score of 0.015385.",
+              "prompt_tokens": 1007,
+              "completion_tokens": 312
             },
             {
               "i": 39,
-              "tag": "advice_stats",
+              "tag": "recall_sdm",
               "correct": true,
               "status": "OK",
               "finish_reason": "stop",
               "actions": [
-                "meta.stats",
-                "meta.advice_stats"
+                "memory.recall"
               ],
-              "answer": "The learned advice statistics for `reason.solve` show one row for the model `gemma-4-e4b-q4km` with a success rate of 1.0.",
-              "prompt_tokens": 1869,
-              "completion_tokens": 453
+              "answer": "The memory recall successfully retrieved the entry 'lunar rover'.",
+              "prompt_tokens": 1006,
+              "completion_tokens": 296
             },
             {
               "i": 40,
+              "tag": "flyvec_train",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.flyvec_train"
+              ],
+              "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
+              "prompt_tokens": 1066,
+              "completion_tokens": 284
+            },
+            {
+              "i": 41,
+              "tag": "flyvec_train",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.flyvec_train"
+              ],
+              "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
+              "prompt_tokens": 1067,
+              "completion_tokens": 284
+            },
+            {
+              "i": 42,
+              "tag": "flyvec_train",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.flyvec_train"
+              ],
+              "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
+              "prompt_tokens": 1068,
+              "completion_tokens": 284
+            },
+            {
+              "i": 43,
+              "tag": "flyvec_train",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.flyvec_train"
+              ],
+              "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
+              "prompt_tokens": 1068,
+              "completion_tokens": 284
+            },
+            {
+              "i": 44,
+              "tag": "flyvec_train",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.flyvec_train"
+              ],
+              "answer": "The FlyVec encoder was successfully trained on the memory for 3 epochs.",
+              "prompt_tokens": 1068,
+              "completion_tokens": 289
+            },
+            {
+              "i": 45,
+              "tag": "recall_flyvec",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall",
+                "memory.recall"
+              ],
+              "answer": "The memory recall for 'telescope' using the 'flyvec' encoder returned 5 nodes and 6 facts, including \"orbital telescope\" and \"Lumen\".",
+              "prompt_tokens": 2189,
+              "completion_tokens": 602
+            },
+            {
+              "i": 46,
+              "tag": "recall_flyvec",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall",
+                "memory.recall"
+              ],
+              "answer": "The memory recall for 'telescope' returned 5 related nodes and 6 facts, including \"orbital telescope\" and \"Lumen\".",
+              "prompt_tokens": 2199,
+              "completion_tokens": 713
+            },
+            {
+              "i": 47,
+              "tag": "recall_flyvec",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall",
+                "memory.recall"
+              ],
+              "answer": "The memory recall successfully retrieved 5 nodes and 6 facts related to 'telescope'.",
+              "prompt_tokens": 2199,
+              "completion_tokens": 656
+            },
+            {
+              "i": 48,
+              "tag": "recall_flyvec",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall",
+                "memory.recall"
+              ],
+              "answer": "The memory recall for 'telescope' returned 5 nodes and 6 facts, including \"orbital telescope\" and \"Lumen\".",
+              "prompt_tokens": 2202,
+              "completion_tokens": 754
+            },
+            {
+              "i": 49,
+              "tag": "recall_flyvec",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.recall",
+                "memory.recall"
+              ],
+              "answer": "The memory recall found 5 nodes and 6 facts related to 'telescope', including \"orbital telescope\" and \"Lumen\".",
+              "prompt_tokens": 2198,
+              "completion_tokens": 776
+            },
+            {
+              "i": 50,
+              "tag": "consolidate",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.consolidate"
+              ],
+              "answer": "The memory consolidation operation was successful, reporting 2 replayed items and 128 captured items.",
+              "prompt_tokens": 1062,
+              "completion_tokens": 310
+            },
+            {
+              "i": 51,
+              "tag": "consolidate",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.consolidate"
+              ],
+              "answer": "The memory consolidation operation was successful, reporting 2 replayed items and 128 captured items.",
+              "prompt_tokens": 1062,
+              "completion_tokens": 311
+            },
+            {
+              "i": 52,
+              "tag": "consolidate",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.consolidate"
+              ],
+              "answer": "The memory consolidation operation was successful, reporting 2 replayed items and 128 captured items.",
+              "prompt_tokens": 1062,
+              "completion_tokens": 310
+            },
+            {
+              "i": 53,
+              "tag": "consolidate",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.consolidate"
+              ],
+              "answer": "The memory consolidation operation was successful, reporting 2 replayed items and 128 captured items.",
+              "prompt_tokens": 1063,
+              "completion_tokens": 311
+            },
+            {
+              "i": 54,
+              "tag": "consolidate",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "memory.consolidate"
+              ],
+              "answer": "The memory consolidation operation was successful, reporting 2 replayed items and 128 captured items.",
+              "prompt_tokens": 1062,
+              "completion_tokens": 311
+            },
+            {
+              "i": 55,
+              "tag": "advise",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "meta.advise",
+                "meta.advise"
+              ],
+              "answer": "The tool advises that using `reason.solve` for this task is neutral, suggesting it is suitable for small SAT tasks.",
+              "prompt_tokens": 2139,
+              "completion_tokens": 944
+            },
+            {
+              "i": 56,
+              "tag": "advise",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "meta.advise",
+                "meta.advise"
+              ],
+              "answer": "The tool advises that using `reason.solve` is neutral for this task, as it involves about 6 or fewer comparisons and only asks for any valid values.",
+              "prompt_tokens": 2079,
+              "completion_tokens": 1329
+            },
+            {
+              "i": 57,
+              "tag": "advise",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "meta.advise",
+                "meta.advise"
+              ],
+              "answer": "The tool advises that using `reason.solve` is neutral for this task.",
+              "prompt_tokens": 2144,
+              "completion_tokens": 1173
+            },
+            {
+              "i": 58,
+              "tag": "advise",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "meta.advise",
+                "meta.advise"
+              ],
+              "answer": "The tool advises a neutral stance on using `reason.solve` for this task, citing no evidence.",
+              "prompt_tokens": 2045,
+              "completion_tokens": 1083
+            },
+            {
+              "i": 59,
+              "tag": "advise",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "meta.advise",
+                "meta.advise"
+              ],
+              "answer": "The tool advises that using `reason.solve` for this task is neutral, suggesting it is suitable for small SAT tasks.",
+              "prompt_tokens": 2143,
+              "completion_tokens": 1126
+            },
+            {
+              "i": 60,
+              "tag": "feedback",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "meta.feedback"
+              ],
+              "answer": "Feedback for the specified action has been successfully recorded.",
+              "prompt_tokens": 1204,
+              "completion_tokens": 282
+            },
+            {
+              "i": 61,
+              "tag": "feedback",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "meta.feedback"
+              ],
+              "answer": "Feedback for the specified action has been successfully recorded.",
+              "prompt_tokens": 1204,
+              "completion_tokens": 282
+            },
+            {
+              "i": 62,
+              "tag": "feedback",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "meta.feedback"
+              ],
+              "answer": "Feedback for the specified action has been successfully recorded.",
+              "prompt_tokens": 1204,
+              "completion_tokens": 282
+            },
+            {
+              "i": 63,
+              "tag": "feedback",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "meta.feedback"
+              ],
+              "answer": "Feedback for the specified action has been successfully recorded.",
+              "prompt_tokens": 1205,
+              "completion_tokens": 282
+            },
+            {
+              "i": 64,
+              "tag": "feedback",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "meta.feedback"
+              ],
+              "answer": "Feedback for the specified action has been successfully recorded.",
+              "prompt_tokens": 1204,
+              "completion_tokens": 282
+            },
+            {
+              "i": 65,
+              "tag": "advice_stats",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "meta.stats",
+                "meta.advice_stats"
+              ],
+              "answer": "The learned advice statistics for `reason.solve` show one row for the model `gemma-4-e4b-q4km` where the action was used successfully once.",
+              "prompt_tokens": 1993,
+              "completion_tokens": 413
+            },
+            {
+              "i": 66,
+              "tag": "advice_stats",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "meta.stats",
+                "meta.advice_stats"
+              ],
+              "answer": "The learned advice statistics for `reason.solve` show one row for the model `gemma-4-e4b-q4km`, indicating 1 success and 0 failures.",
+              "prompt_tokens": 1997,
+              "completion_tokens": 431
+            },
+            {
+              "i": 67,
+              "tag": "advice_stats",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "meta.stats",
+                "meta.advice_stats"
+              ],
+              "answer": "The learned advice statistics for `reason.solve` show one row for the model `gemma-4-e4b-q4km` where the action was used successfully once.",
+              "prompt_tokens": 1991,
+              "completion_tokens": 401
+            },
+            {
+              "i": 68,
               "tag": "advice_stats",
               "correct": true,
               "status": "OK",
@@ -12741,11 +13482,11 @@
                 "meta.advice_stats"
               ],
               "answer": "The learned advice statistics for `reason.solve` show one row for the model `gemma-4-e4b-q4km` with a success rate of 1.0.",
-              "prompt_tokens": 1873,
-              "completion_tokens": 441
+              "prompt_tokens": 1993,
+              "completion_tokens": 420
             },
             {
-              "i": 41,
+              "i": 69,
               "tag": "advice_stats",
               "correct": true,
               "status": "OK",
@@ -12754,149 +13495,172 @@
                 "meta.stats",
                 "meta.advice_stats"
               ],
-              "answer": "The learned advice statistics for `reason.solve` show one row for `gemma-4-e4b-q4km` with a success rate of 1.0.",
-              "prompt_tokens": 1870,
-              "completion_tokens": 446
+              "answer": "The learned advice statistics for `reason.solve` show one row for the model `gemma-4-e4b-q4km` with a success rate of 1.0.",
+              "prompt_tokens": 1997,
+              "completion_tokens": 420
             },
             {
-              "i": 42,
+              "i": 70,
               "tag": "advice_reset",
               "correct": true,
               "status": "OK",
               "finish_reason": "stop",
               "actions": [
-                "meta.advice_reset",
                 "meta.advice_reset"
               ],
               "answer": "The learned advice for 'reason.solve' has been successfully reset.",
-              "prompt_tokens": 1801,
-              "completion_tokens": 937
+              "prompt_tokens": 1007,
+              "completion_tokens": 733
             },
             {
-              "i": 43,
+              "i": 71,
               "tag": "advice_reset",
               "correct": true,
               "status": "OK",
               "finish_reason": "stop",
               "actions": [
-                "meta.advice_reset",
                 "meta.advice_reset"
               ],
               "answer": "The learned advice for 'reason.solve' has been successfully reset.",
-              "prompt_tokens": 1799,
-              "completion_tokens": 941
+              "prompt_tokens": 1008,
+              "completion_tokens": 849
             },
             {
-              "i": 44,
+              "i": 72,
               "tag": "advice_reset",
               "correct": true,
               "status": "OK",
               "finish_reason": "stop",
               "actions": [
-                "meta.advice_reset",
                 "meta.advice_reset"
               ],
               "answer": "The learned advice for 'reason.solve' has been successfully reset.",
-              "prompt_tokens": 1789,
-              "completion_tokens": 799
+              "prompt_tokens": 1003,
+              "completion_tokens": 767
+            },
+            {
+              "i": 73,
+              "tag": "advice_reset",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "meta.advice_reset"
+              ],
+              "answer": "The learned advice for 'reason.solve' has been successfully reset.",
+              "prompt_tokens": 1007,
+              "completion_tokens": 271
+            },
+            {
+              "i": 74,
+              "tag": "advice_reset",
+              "correct": true,
+              "status": "OK",
+              "finish_reason": "stop",
+              "actions": [
+                "meta.advice_reset"
+              ],
+              "answer": "The learned advice for 'reason.solve' has been successfully reset.",
+              "prompt_tokens": 1007,
+              "completion_tokens": 306
             }
           ],
-          "reps": 3,
+          "reps": 5,
           "per_step": {
             "handshake": {
-              "k": 1,
-              "n": 3,
-              "called": 1,
-              "server_ok": 1
+              "k": 5,
+              "n": 5,
+              "called": 5,
+              "server_ok": 5
             },
             "ingest": {
-              "k": 3,
-              "n": 3,
-              "called": 3,
-              "server_ok": 3
+              "k": 5,
+              "n": 5,
+              "called": 5,
+              "server_ok": 5
             },
             "teach1": {
-              "k": 3,
-              "n": 3,
-              "called": 3,
-              "server_ok": 3
+              "k": 5,
+              "n": 5,
+              "called": 5,
+              "server_ok": 5
             },
             "teach2": {
-              "k": 3,
-              "n": 3,
-              "called": 3,
-              "server_ok": 3
+              "k": 5,
+              "n": 5,
+              "called": 5,
+              "server_ok": 5
             },
             "recall_quorum": {
-              "k": 3,
-              "n": 3,
-              "called": 3,
-              "server_ok": 3
+              "k": 5,
+              "n": 5,
+              "called": 5,
+              "server_ok": 5
             },
             "recall_usage": {
-              "k": 3,
-              "n": 3,
-              "called": 3,
-              "server_ok": 3
+              "k": 5,
+              "n": 5,
+              "called": 5,
+              "server_ok": 5
             },
             "recall_inhib": {
-              "k": 3,
-              "n": 3,
-              "called": 3,
-              "server_ok": 3
+              "k": 5,
+              "n": 5,
+              "called": 5,
+              "server_ok": 5
             },
             "recall_sdm": {
-              "k": 3,
-              "n": 3,
-              "called": 3,
-              "server_ok": 3
+              "k": 5,
+              "n": 5,
+              "called": 5,
+              "server_ok": 5
             },
             "flyvec_train": {
-              "k": 3,
-              "n": 3,
-              "called": 3,
-              "server_ok": 3
+              "k": 5,
+              "n": 5,
+              "called": 5,
+              "server_ok": 5
             },
             "recall_flyvec": {
-              "k": 3,
-              "n": 3,
-              "called": 3,
-              "server_ok": 3
+              "k": 5,
+              "n": 5,
+              "called": 5,
+              "server_ok": 5
             },
             "consolidate": {
-              "k": 3,
-              "n": 3,
-              "called": 3,
-              "server_ok": 3
+              "k": 5,
+              "n": 5,
+              "called": 5,
+              "server_ok": 5
             },
             "advise": {
-              "k": 2,
-              "n": 3,
-              "called": 2,
-              "server_ok": 2
+              "k": 5,
+              "n": 5,
+              "called": 5,
+              "server_ok": 5
             },
             "feedback": {
-              "k": 2,
-              "n": 3,
-              "called": 3,
-              "server_ok": 2
+              "k": 5,
+              "n": 5,
+              "called": 5,
+              "server_ok": 5
             },
             "advice_stats": {
-              "k": 3,
-              "n": 3,
-              "called": 3,
-              "server_ok": 3
+              "k": 5,
+              "n": 5,
+              "called": 5,
+              "server_ok": 5
             },
             "advice_reset": {
-              "k": 3,
-              "n": 3,
-              "called": 3,
-              "server_ok": 3
+              "k": 5,
+              "n": 5,
+              "called": 5,
+              "server_ok": 5
             }
           },
           "total": {
-            "k": 41,
-            "n": 45
+            "k": 75,
+            "n": 75
           },
           "bio_defaults": "all"
         }

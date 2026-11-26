@@ -12,24 +12,24 @@
   "data": {
     "batch": {
       "tool_calls": 1,
-      "tool_list_bytes": 1251,
+      "tool_list_bytes": 1575,
       "request_bytes": 577,
-      "response_bytes": 606,
-      "est_tokens": 921
+      "response_bytes": 788,
+      "est_tokens": 1129
     },
     "sequential": {
       "tool_calls": 4,
-      "tool_list_bytes": 1251,
+      "tool_list_bytes": 1575,
       "request_bytes": 457,
-      "response_bytes": 1797,
-      "est_tokens": 2127
+      "response_bytes": 1979,
+      "est_tokens": 2578
     },
     "granular": {
       "tool_calls": 4,
-      "tool_list_bytes": 5939,
+      "tool_list_bytes": 11111,
       "request_bytes": 417,
-      "response_bytes": 1797,
-      "est_tokens": 7977,
+      "response_bytes": 1979,
+      "est_tokens": 14488,
       "simulated": true
     }
   }
