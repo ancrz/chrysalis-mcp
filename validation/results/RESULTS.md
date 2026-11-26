@@ -129,6 +129,15 @@ alias_ingest_clean and fly_update_consolidate are informational: the first is th
 | on | advice_reset | 3/3 | 3 | 3 |
 | on | TOTAL | 41/45 | - | - |
 
+## Calibration vs measured outcome
+
+| thinking | family | calibration score | tool - alone | sign agrees |
+|---|---|---|---|---|
+| on | reason | 1.0 | +0.1176 | True |
+| on | memory | 1.0 | +0.95 | True |
+
+Sign agreement: score >= 0.8 iff the tool helps. n is tiny (one calibration per mode, 17 hard items): no claim of statistical significance is made.
+
 <!-- manual:start -->
 ## Run configuration
 
@@ -141,7 +150,7 @@ alias_ingest_clean and fly_update_consolidate are informational: the first is th
 | `CHRYSALIS_BIO_DEFAULTS` | `all` for the main rows; memory groups were also run with `off` (rows suffixed `bio_defaults=off`) |
 | feedback loop | `CHRYSALIS_EVAL_FEEDBACK=1` on the advised arms of the battery; off for the memory groups |
 | H-bio repetitions | 3 per step (15 steps, 45 trials) |
-| code state | commit `35204b7`, 2026-11-26 (battery run 2026-11-20, memory groups 2026-11-25) |
+| code state | commit `35204b7`, 2026-11-26 (battery run 2026-11-20, memory groups 2026-11-25, calibration 2026-11-26) |
 
 Deterministic benches (H-a retrieval, H-a', H-b, H-b-e2e retrieval, H-mcp, bio_low) do not involve a model.
 
@@ -163,7 +172,8 @@ Deterministic benches (H-a retrieval, H-a', H-b, H-b-e2e retrieval, H-mcp, bio_l
   adds tokens, not accuracy. On the hard set the tool lifts 0.8824 to 1.0.
 - **H-bio** passes 41 of 45 trials; the misses are concentrated in `handshake` (1/3), `advise`
   (2/3) and `feedback` (2/3).
-- The calibration probe could not reach the server during the battery run, so that group is not
-  published; the calibration section is therefore absent.
+- The calibration probe could not reach the server during the battery run; it was rerun alone on
+  2026-11-26 (same model, thinking on, bio defaults all) and its single result is the one published
+  above.
 - Advice evidence in the advised arms accrues in run order and, with concurrency, the order is
   nondeterministic (totals are not).

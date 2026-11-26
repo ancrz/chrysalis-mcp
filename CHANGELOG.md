@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Calibration result for Gemma 4 E4B with reasoning on (memory 1.0, reason 1.0; sign agrees with
+  the measured tool gain for both families) in `validation/results/RESULTS.md`.
+
 ## [0.2.0] - 2026-11-26
 
 ### Added
@@ -67,5 +74,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Initial release: single-tool MCP server with graph memory, continual learning outside the weights,
 Z3-backed reasoning and evidence-based advice.
 
+[Unreleased]: https://github.com/ancrz/chrysalis-mcp/compare/v0.2.0...HEAD
 [0.2.0]: https://github.com/ancrz/chrysalis-mcp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ancrz/chrysalis-mcp/releases/tag/v0.1.0

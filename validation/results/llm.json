@@ -15483,6 +15483,21 @@
             }
           ]
         }
+      },
+      "calibration": {
+        "status": "OK",
+        "scores": {
+          "memory": 1.0,
+          "reason": 1.0
+        },
+        "submitted": true,
+        "actions": [
+          "meta.calibrate"
+        ],
+        "error": null,
+        "prompt_tokens": 1728,
+        "completion_tokens": 1655,
+        "wall_s": 75.94
       }
     }
   },
