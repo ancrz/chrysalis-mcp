@@ -17,6 +17,7 @@ from .envelope import infer_severity
 from .learning import AdviceStore
 from .profile import ProfileStore
 from .session import SessionCache, resolve_session_id
+from .shape_hints import shape_hint
 
 Params = dict[str, Any]
 Payload = dict[str, Any]
@@ -329,6 +330,15 @@ def _other_action(registry: Registry, spec: ActionSpec, params: Params) -> str |
     return next(iter(fits)) if len(fits) == 1 else None
 
 
+MAX_ECHO_NAME_CHARS = 64
+
+
+def _short(name: Any) -> str:
+    """Bound a caller-supplied key name echoed in an error envelope."""
+    text = str(name)
+    return text if len(text) <= MAX_ECHO_NAME_CHARS else text[:MAX_ECHO_NAME_CHARS] + "..."
+
+
 def _check_params(registry: Registry, spec: ActionSpec, params: Params) -> Payload | None:
     known = spec.params_schema
     missing = [n for n, s in known.items() if s.get("required") and n not in params]
@@ -339,17 +349,23 @@ def _check_params(registry: Registry, spec: ActionSpec, params: Params) -> Paylo
         "status": "ERROR",
         "error": f"invalid params for {spec.domain}.{spec.action}",
         "missing": missing,
-        "unknown": unknown,
+        "unknown": [_short(n) for n in unknown],
         "valid": sorted(known),
         "example": registry.example_call(spec.domain, spec.action),
         "next_action": "Fix params per 'valid'/'missing' and copy the shape of 'example'.",
     }
     if unknown and (guess := _did_you_mean(unknown, known)):
-        out["did_you_mean"] = guess
+        out["did_you_mean"] = {_short(k): v for k, v in guess.items()}
     if _TRIPLE_WORDS & set(unknown) and "triples" in known:
         out["hint"] = "triples items are {s, r, o}: params={'triples': [{'s':..,'r':..,'o':..}]}"
     other = _other_action(registry, spec, params)
     if other is not None:
         out["did_you_mean_action"] = f"{spec.domain}.{other}"
         out["did_you_mean_example"] = registry.example_call(spec.domain, other)
+    if "did_you_mean_action" not in out and (
+        redirect := shape_hint(spec.domain, spec.action, params)
+    ):
+        if "hint" in out:
+            redirect["hint"] = f"{out['hint']} {redirect['hint']}"
+        out.update(redirect)
     return out

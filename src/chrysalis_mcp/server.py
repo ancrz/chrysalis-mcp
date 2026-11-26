@@ -15,7 +15,9 @@ from .domains import build_registry
 TOOL_DESCRIPTION = (
     "Single dispatcher: chrysalis(domain, action, params). Call domain='meta', action='schema' "
     "for the full contract, or action='discover' for a compact map. Chain steps in one call with "
-    "meta.batch. verbosity: detail|summary|brief|terse."
+    "meta.batch. verbosity: detail|summary|brief|terse. Self-report: meta.handshake (declare "
+    "model/family/params_b), meta.advise (should I use a tool for this task?), meta.feedback "
+    "(record a tool outcome)."
 )
 
 
